@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: service-provider
+  labels:
+    app: api-gateway
+    component: gateway
+    part-of: service-provider-system
+    managed-by: kubernetes
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+    service.beta.kubernetes.io/description: "API Gateway service for centralized routing and authentication"
+    service.beta.kubernetes.io/documentation: "https://github.com/org/repo/docs/api-gateway.md"
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https 
+      port: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app: api-gateway
+    component: gateway
+  sessionAffinity: None
+  publishNotReadyAddresses: false
