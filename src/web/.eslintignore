@@ -1,0 +1,40 @@
+dist/*
+build/*
+.quasar/*
+
+# Dependencies
+node_modules/*
+
+# Test coverage reports
+coverage/*
+
+# Minified files
+*.min.js
+
+# TypeScript declaration files
+*.d.ts
+
+# Cypress test artifacts
+cypress/downloads/*
+cypress/screenshots/*
+cypress/videos/*
+
+# Static assets
+public/*
+src/assets/*
+
+# Generated files
+*.generated.*
+.eslintcache
+
+# Environment files
+.env*
+!.env.example
+
+# IDE and editor files
+.idea/*
+.vscode/*
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
