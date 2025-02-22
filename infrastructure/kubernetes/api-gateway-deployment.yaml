@@ -1,0 +1,130 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: service-provider
+  labels:
+    app: api-gateway
+    component: gateway
+    tier: frontend
+    environment: production
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        component: gateway
+        tier: frontend
+      annotations:
+        checksum/config: ${CONFIG_CHECKSUM}
+        checksum/secrets: ${SECRETS_CHECKSUM}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: api-gateway
+        image: serviceprovider/api-gateway:${VERSION}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Production"
+        - name: ASPNETCORE_URLS
+          value: "http://+:80;https://+:443"
+        envFrom:
+        - configMapRef:
+            name: gateway-config
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: secrets-volume
+          mountPath: /app/secrets
+          readOnly: true
+        - name: tls-cert
+          mountPath: /app/certificates
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30
+      volumes:
+      - name: config-volume
+        configMap:
+          name: gateway-config
+      - name: secrets-volume
+        secret:
+          secretName: service-provider-secrets
+      - name: tls-cert
+        secret:
+          secretName: service-provider-tls
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - api-gateway
+              topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 60
