@@ -1,0 +1,109 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appInsightsName": {
+            "type": "string",
+            "description": "Name of the Application Insights instance",
+            "minLength": 3,
+            "maxLength": 63,
+            "metadata": {
+                "description": "Name of the Application Insights instance for the Service Provider Management System",
+                "validation": "^[a-zA-Z0-9-]+$"
+            }
+        },
+        "location": {
+            "type": "string", 
+            "description": "Azure region for deployment",
+            "allowedValues": [
+                "eastus",
+                "westus",
+                "centralus"
+            ]
+        },
+        "workspaceResourceId": {
+            "type": "string",
+            "description": "Resource ID of the Log Analytics workspace"
+        },
+        "dailyQuota": {
+            "type": "int",
+            "description": "Daily data volume cap in GB",
+            "defaultValue": 100
+        },
+        "retentionInDays": {
+            "type": "int",
+            "description": "Data retention period in days",
+            "defaultValue": 90,
+            "minValue": 30,
+            "maxValue": 730
+        },
+        "tags": {
+            "type": "object",
+            "description": "Resource tags for organization and billing",
+            "defaultValue": {
+                "environment": "",
+                "application": "SPMS",
+                "service": "Monitoring",
+                "owner": "Operations",
+                "costCenter": "",
+                "compliance": "Standard"
+            }
+        }
+    },
+    "variables": {
+        "workspaceId": "[parameters('workspaceResourceId')]",
+        "samplingSettings": {
+            "isEnabled": true,
+            "maxTelemetryItemsPerSecond": 100,
+            "evaluationInterval": "01:00:00",
+            "samplingPercentageDecreaseTimeout": "00:05:00",
+            "samplingPercentageIncreaseTimeout": "00:05:00",
+            "maxSamplingPercentage": 100.0,
+            "initialSamplingPercentage": 100.0,
+            "excludedTypes": "Exception"
+        },
+        "networkAccessSettings": {
+            "publicNetworkAccessForIngestion": "Enabled",
+            "publicNetworkAccessForQuery": "Enabled",
+            "ipSecurityRestrictions": []
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Insights/components",
+            "apiVersion": "2020-02-02-preview",
+            "name": "[parameters('appInsightsName')]",
+            "location": "[parameters('location')]",
+            "kind": "web",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "Application_Type": "web",
+                "Flow_Type": "Redfield",
+                "Request_Source": "rest",
+                "RetentionInDays": "[parameters('retentionInDays')]",
+                "WorkspaceResourceId": "[variables('workspaceId')]",
+                "IngestionMode": "ApplicationInsights",
+                "publicNetworkAccessForIngestion": "[variables('networkAccessSettings').publicNetworkAccessForIngestion]",
+                "publicNetworkAccessForQuery": "[variables('networkAccessSettings').publicNetworkAccessForQuery]",
+                "ipSecurityRestrictions": "[variables('networkAccessSettings').ipSecurityRestrictions]",
+                "SamplingSettings": "[variables('samplingSettings')]",
+                "DisableIpMasking": false,
+                "DailyQuota": "[parameters('dailyQuota')]"
+            }
+        }
+    ],
+    "outputs": {
+        "instrumentationKey": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName'))).InstrumentationKey]"
+        },
+        "connectionString": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName'))).ConnectionString]"
+        },
+        "workspaceId": {
+            "type": "string",
+            "value": "[variables('workspaceId')]"
+        }
+    }
+}
