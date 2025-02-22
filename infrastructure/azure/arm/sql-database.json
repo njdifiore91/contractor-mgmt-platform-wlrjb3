@@ -1,0 +1,193 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "serverName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Azure SQL Server instance"
+            }
+        },
+        "databaseName": {
+            "type": "string", 
+            "metadata": {
+                "description": "Name of the SQL database"
+            }
+        },
+        "environmentName": {
+            "type": "string",
+            "metadata": {
+                "description": "Deployment environment (dev, staging, prod)"
+            }
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure region for resource deployment"
+            }
+        },
+        "administratorLogin": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL Server administrator username from Key Vault"
+            }
+        },
+        "administratorLoginPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL Server administrator password from Key Vault"
+            }
+        },
+        "skuName": {
+            "type": "string",
+            "defaultValue": "BC_Gen5_2",
+            "metadata": {
+                "description": "Business Critical tier with Gen5 hardware and 2 vCores"
+            }
+        },
+        "maxSizeBytes": {
+            "type": "int",
+            "defaultValue": 268435456000,
+            "metadata": {
+                "description": "Maximum database size of 250GB in bytes"
+            }
+        },
+        "backupRetentionDays": {
+            "type": "int",
+            "defaultValue": 35,
+            "metadata": {
+                "description": "Number of days to retain backups"
+            }
+        },
+        "enableAuditLogging": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable SQL audit logging"
+            }
+        }
+    },
+    "variables": {
+        "auditingStorageAccountName": "[concat('sqlaudit', uniqueString(resourceGroup().id))]",
+        "databaseTags": {
+            "application": "ServiceProviderSystem",
+            "environment": "[parameters('environmentName')]",
+            "criticality": "High",
+            "dataClassification": "Confidential",
+            "backup": "Required",
+            "dr": "Critical"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2021-11-01",
+            "name": "[parameters('serverName')]",
+            "location": "[parameters('location')]",
+            "tags": "[variables('databaseTags')]",
+            "properties": {
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+                "version": "12.0",
+                "minimalTlsVersion": "1.2",
+                "publicNetworkAccess": "Disabled",
+                "restrictOutboundNetworkAccess": true
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/databases",
+            "apiVersion": "2021-11-01",
+            "name": "[concat(parameters('serverName'), '/', parameters('databaseName'))]",
+            "location": "[parameters('location')]",
+            "tags": "[variables('databaseTags')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+            ],
+            "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "BusinessCritical"
+            },
+            "properties": {
+                "collation": "SQL_Latin1_General_CP1_CI_AS",
+                "maxSizeBytes": "[parameters('maxSizeBytes')]",
+                "zoneRedundant": true,
+                "readScale": "Enabled",
+                "requestedBackupStorageRedundancy": "GeoZone",
+                "isLedgerOn": true,
+                "maintenanceConfigurationId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Maintenance/publicMaintenanceConfigurations/SQL_Default')]",
+                "minCapacity": 0.5,
+                "autoPauseDelay": -1,
+                "highAvailabilityReplicaCount": 4,
+                "backupRetentionDays": "[parameters('backupRetentionDays')]",
+                "enableAutoFailover": true
+            }
+        },
+        {
+            "condition": "[parameters('enableAuditLogging')]",
+            "type": "Microsoft.Sql/servers/auditingSettings",
+            "apiVersion": "2021-11-01",
+            "name": "[concat(parameters('serverName'), '/Default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "auditActionsAndGroups": [
+                    "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+                    "FAILED_DATABASE_AUTHENTICATION_GROUP",
+                    "BATCH_COMPLETED_GROUP"
+                ],
+                "retentionDays": 365,
+                "isAzureMonitorTargetEnabled": true
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/securityAlertPolicies",
+            "apiVersion": "2021-11-01",
+            "name": "[concat(parameters('serverName'), '/Default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "emailAccountAdmins": true,
+                "emailAddresses": []
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/vulnerabilityAssessments",
+            "apiVersion": "2021-11-01",
+            "name": "[concat(parameters('serverName'), '/Default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+            ],
+            "properties": {
+                "recurringScans": {
+                    "isEnabled": true,
+                    "emailSubscriptionAdmins": true
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "serverName": {
+            "type": "string",
+            "value": "[parameters('serverName')]"
+        },
+        "databaseName": {
+            "type": "string",
+            "value": "[parameters('databaseName')]"
+        },
+        "serverResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Sql/servers', parameters('serverName'))]"
+        },
+        "databaseResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Sql/servers/databases', parameters('serverName'), parameters('databaseName'))]"
+        }
+    }
+}
