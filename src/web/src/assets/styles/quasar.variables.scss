@@ -1,0 +1,155 @@
+// Quasar Framework SCSS variables customization
+// @quasar/extras v2.0.0
+// sass v1.32.0
+
+// Material Design Color System
+// Primary colors with WCAG AA compliance
+$primary: rgb(33, 150, 243);          // Blue 500 - Main brand color
+$primary-light: rgb(100, 181, 246);   // Blue 300
+$primary-dark: rgb(25, 118, 210);     // Blue 700
+
+// Secondary colors
+$secondary: rgb(96, 125, 139);        // Blue Grey 500
+$secondary-light: rgb(144, 164, 174); // Blue Grey 300
+$secondary-dark: rgb(69, 90, 100);    // Blue Grey 700
+
+// Accent color for emphasis
+$accent: rgb(255, 64, 129);          // Pink A400
+
+// Semantic colors for states and feedback
+$positive: rgb(76, 175, 80);         // Green 500
+$negative: rgb(244, 67, 54);         // Red 500
+$info: rgb(33, 150, 243);           // Blue 500
+$warning: rgb(255, 152, 0);         // Orange 500
+
+// Dark theme base
+$dark: rgb(33, 33, 33);             // Grey 900
+$dark-page: rgb(18, 18, 18);        // Even darker background
+
+// Text colors with WCAG AA compliance
+$text-primary: rgba(0, 0, 0, 0.87);    // Primary text
+$text-secondary: rgba(0, 0, 0, 0.54);  // Secondary text
+$text-disabled: rgba(0, 0, 0, 0.38);   // Disabled text
+$text-hint: rgba(0, 0, 0, 0.38);       // Hint text
+
+// Dark theme text colors
+$text-dark-primary: rgba(255, 255, 255, 0.87);
+$text-dark-secondary: rgba(255, 255, 255, 0.54);
+$text-dark-disabled: rgba(255, 255, 255, 0.38);
+$text-dark-hint: rgba(255, 255, 255, 0.38);
+
+// Typography system
+$typography-font-family: 'Roboto', '-apple-system', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+// Font weights map
+$typography-font-weights: (
+  thin: 100,
+  light: 300,
+  regular: 400,
+  medium: 500,
+  bold: 700,
+  black: 900
+);
+
+// Font sizes
+$font-size-base: 16px;
+$font-size-h1: 96px;
+$font-size-h2: 60px;
+$font-size-h3: 48px;
+$font-size-h4: 34px;
+$font-size-h5: 24px;
+$font-size-h6: 20px;
+$font-size-body1: 16px;
+$font-size-body2: 14px;
+$font-size-caption: 12px;
+
+// Line heights for readability
+$line-height-h1: 1.167;
+$line-height-h2: 1.2;
+$line-height-h3: 1.167;
+$line-height-h4: 1.235;
+$line-height-h5: 1.334;
+$line-height-h6: 1.6;
+$line-height-body: 1.5;
+
+// Spacing system
+$space-base: 16px;
+$space-none: 0;
+$space-xs: 4px;
+$space-sm: 8px;
+$space-md: 16px;
+$space-lg: 24px;
+$space-xl: 32px;
+$space-2xl: 48px;
+$space-3xl: 64px;
+
+// Responsive breakpoints
+$breakpoint-xs: 320px;
+$breakpoint-sm: 768px;
+$breakpoint-md: 1024px;
+$breakpoint-lg: 1440px;
+$breakpoint-xl: 1920px;
+
+// Elevation/Shadow system
+$elevation-1: 0 2px 4px rgba(0,0,0,0.12);
+$elevation-2: 0 3px 6px rgba(0,0,0,0.15);
+$elevation-3: 0 4px 8px rgba(0,0,0,0.18);
+$elevation-4: 0 6px 12px rgba(0,0,0,0.20);
+$elevation-5: 0 8px 16px rgba(0,0,0,0.22);
+
+// Border radius
+$border-radius-base: 4px;
+$border-radius-sm: 2px;
+$border-radius-lg: 8px;
+$border-radius-xl: 16px;
+$border-radius-round: 9999px;
+
+// Transitions
+$transition-duration: 0.3s;
+$transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+
+// Focus visible outline for accessibility
+$focus-ring-width: 2px;
+$focus-ring-style: solid;
+$focus-ring-color: rgba($primary, 0.75);
+$focus-ring-offset: 2px;
+
+// Z-index scale
+$z-index-drawer: 1000;
+$z-index-modal: 2000;
+$z-index-popup: 3000;
+$z-index-tooltip: 4000;
+$z-index-notify: 5000;
+
+// Form controls
+$field-border-width: 1px;
+$field-border-style: solid;
+$field-border-color: rgba(0, 0, 0, 0.23);
+$field-border-radius: $border-radius-base;
+$field-padding-horizontal: $space-md;
+$field-padding-vertical: $space-sm;
+$field-hover-border-color: rgba(0, 0, 0, 0.87);
+
+// Grid system
+$grid-gutter: $space-md;
+$grid-columns: 12;
+$grid-breakpoints: (
+  xs: $breakpoint-xs,
+  sm: $breakpoint-sm,
+  md: $breakpoint-md,
+  lg: $breakpoint-lg,
+  xl: $breakpoint-xl
+);
+
+// Animation durations
+$animation-duration-fast: 0.15s;
+$animation-duration-base: 0.3s;
+$animation-duration-slow: 0.45s;
+
+// Opacity levels
+$opacity-disabled: 0.38;
+$opacity-hint: 0.38;
+$opacity-hover: 0.04;
+$opacity-focus: 0.12;
+$opacity-selected: 0.08;
+$opacity-activated: 0.12;
