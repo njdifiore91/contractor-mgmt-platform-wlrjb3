@@ -1,0 +1,103 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "value": "[parameters('systemPrefix')]-kv-[parameters('environment')]",
+            "metadata": {
+                "description": "Globally unique name for Key Vault instance following naming convention",
+                "validation": {
+                    "minLength": 3,
+                    "maxLength": 24,
+                    "pattern": "^[a-zA-Z0-9-]*$"
+                }
+            }
+        },
+        "location": {
+            "value": "[parameters('primaryLocation')]",
+            "metadata": {
+                "description": "Azure region for Key Vault deployment matching system region"
+            }
+        },
+        "skuName": {
+            "value": "Premium",
+            "metadata": {
+                "description": "Premium tier required for HSM-backed keys and enhanced security features"
+            }
+        },
+        "enableRbacAuthorization": {
+            "value": true,
+            "metadata": {
+                "description": "Enables fine-grained RBAC-based access control for enhanced security"
+            }
+        },
+        "enableSoftDelete": {
+            "value": true,
+            "metadata": {
+                "description": "Enables soft delete protection with recovery capability"
+            }
+        },
+        "softDeleteRetentionInDays": {
+            "value": 90,
+            "metadata": {
+                "description": "Maximum retention period for deleted secrets and keys",
+                "validation": {
+                    "minimum": 7,
+                    "maximum": 90
+                }
+            }
+        },
+        "enablePurgeProtection": {
+            "value": true,
+            "metadata": {
+                "description": "Prevents permanent deletion of vault or vault items"
+            }
+        },
+        "networkAcls": {
+            "value": {
+                "defaultAction": "Deny",
+                "bypass": "AzureServices",
+                "ipRules": [],
+                "virtualNetworkRules": []
+            },
+            "metadata": {
+                "description": "Network security controls for Key Vault access"
+            }
+        },
+        "enabledForDeployment": {
+            "value": true,
+            "metadata": {
+                "description": "Allows Azure Virtual Machines to retrieve certificates"
+            }
+        },
+        "enabledForTemplateDeployment": {
+            "value": true,
+            "metadata": {
+                "description": "Allows ARM templates to retrieve secrets"
+            }
+        },
+        "enabledForDiskEncryption": {
+            "value": true,
+            "metadata": {
+                "description": "Allows Azure Disk Encryption to retrieve secrets and keys"
+            }
+        },
+        "tags": {
+            "value": {
+                "application": "ServiceProviderSystem",
+                "environment": "[parameters('environment')]",
+                "criticality": "High",
+                "security": "Confidential",
+                "compliance": "ISO27001",
+                "dataClassification": "Sensitive",
+                "costCenter": "[parameters('costCenter')]",
+                "owner": "[parameters('systemOwner')]",
+                "backup": "Required",
+                "dr": "Critical"
+            },
+            "metadata": {
+                "description": "Resource tags for organization, security classification and compliance"
+            }
+        }
+    }
+}
