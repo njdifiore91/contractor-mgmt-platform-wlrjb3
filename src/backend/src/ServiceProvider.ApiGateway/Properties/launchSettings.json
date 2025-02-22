@@ -1,0 +1,65 @@
+{
+  "iisSettings": {
+    "windowsAuthentication": false,
+    "anonymousAuthentication": true,
+    "iisExpress": {
+      "applicationUrl": "http://localhost:7000",
+      "sslPort": 7001
+    }
+  },
+  "profiles": {
+    "IIS Express": {
+      "commandName": "IISExpress",
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "ServiceProvider.ApiGateway.Development": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": true,
+      "launchUrl": "swagger",
+      "applicationUrl": "https://localhost:7001;http://localhost:7000",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:7001;http://localhost:7000",
+        "ASPNETCORE_DETAILED_ERRORS": "true",
+        "ASPNETCORE_HTTPS_PORT": "7001",
+        "ASPNETCORE_LOGGING__CONSOLE__DISABLECOLORS": "false",
+        "ASPNETCORE_LOGGING__LOGLEVEL__DEFAULT": "Information",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT": "Warning",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT.HOSTING.LIFETIME": "Information"
+      }
+    },
+    "ServiceProvider.ApiGateway.Staging": {
+      "commandName": "Project", 
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Staging",
+        "ASPNETCORE_URLS": "https://localhost:7001",
+        "ASPNETCORE_HTTPS_PORT": "7001",
+        "ASPNETCORE_LOGGING__LOGLEVEL__DEFAULT": "Warning",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT": "Warning",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT.HOSTING.LIFETIME": "Information"
+      }
+    },
+    "ServiceProvider.ApiGateway.Production": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Production",
+        "ASPNETCORE_URLS": "https://localhost:7001",
+        "ASPNETCORE_HTTPS_PORT": "7001",
+        "ASPNETCORE_LOGGING__LOGLEVEL__DEFAULT": "Warning",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT": "Warning",
+        "ASPNETCORE_LOGGING__LOGLEVEL__MICROSOFT.HOSTING.LIFETIME": "Warning"
+      }
+    }
+  }
+}
