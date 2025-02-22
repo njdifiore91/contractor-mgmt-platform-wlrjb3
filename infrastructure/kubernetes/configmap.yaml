@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-provider-config
+  namespace: service-provider
+  labels:
+    app: service-provider
+    environment: production
+    version: 1.0.0
+    managed-by: kubernetes
+data:
+  # Service Endpoints
+  Services__Users: "http://user-service:80"
+  Services__Customers: "http://customer-service:80"
+  Services__Equipment: "http://equipment-service:80"
+  Services__Inspectors: "http://inspector-service:80"
+  Services__Documents: "http://document-service:80"
+  Services__Gateway: "http://api-gateway:80"
+
+  # Logging Configuration
+  Logging__Level: "Information"
+  Logging__Format: "json"
+  Logging__OutputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+
+  # CORS Settings
+  CORS__AllowedOrigins: "https://*.serviceprovider.com"
+  CORS__AllowedMethods: "GET,POST,PUT,DELETE,OPTIONS"
+  CORS__AllowedHeaders: "Authorization,Content-Type,Accept"
+  CORS__MaxAge: "86400"
+
+  # Cache Configuration
+  Cache__RedisHost: "${REDIS_SERVICE_HOST}"
+  Cache__RedisPort: "${REDIS_SERVICE_PORT}"
+  Cache__DefaultExpiration: "3600"
+  Cache__EnableCompression: "true"
+
+  # Document Storage Settings
+  DocumentStorage__BasePath: "/app/documents"
+  DocumentStorage__MaxFileSize: "104857600"
+  DocumentStorage__AllowedTypes: ".pdf,.doc,.docx,.xls,.xlsx"
+
+  # Application Information
+  Application__Name: "Service Provider Management System"
+  Application__Environment: "Production"
+  Application__Version: "1.0.0"
+  Application__ApiVersion: "v1"
+
+  # Monitoring Configuration
+  Monitoring__Enabled: "true"
+  Monitoring__SamplingRate: "0.25"
+  Monitoring__MetricsEndpoint: "/metrics"
+  Monitoring__HealthCheckEndpoint: "/health"
+
+  # Security Settings
+  Security__RequireHttps: "true"
+  Security__EnableCors: "true"
+  Security__JwtIssuer: "https://auth.serviceprovider.com"
+  Security__JwtAudience: "service-provider-api"
+  Security__TokenLifetimeMinutes: "60"
+
+  # Rate Limiting Configuration
+  RateLimiting__EnableRateLimit: "true"
+  RateLimiting__RequestsPerMinute: "1000"
+  RateLimiting__IpWhitelist: "10.0.0.0/8,172.16.0.0/12"
