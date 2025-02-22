@@ -1,0 +1,31 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appServicePlanName": {
+            "value": "spms-plan-prod"
+        },
+        "webAppName": {
+            "value": "spms-web-prod"
+        },
+        "apiAppName": {
+            "value": "spms-api-prod"
+        },
+        "location": {
+            "value": "eastus2"
+        },
+        "skuName": {
+            "value": "P2v3"
+        },
+        "skuCapacity": {
+            "value": 2
+        },
+        "tags": {
+            "value": {
+                "environment": "production",
+                "application": "spms",
+                "component": "app-service"
+            }
+        }
+    }
+}
