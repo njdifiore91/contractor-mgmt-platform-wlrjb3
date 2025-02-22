@@ -1,0 +1,110 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "apiGatewayName": {
+            "value": "spms-api-gateway",
+            "metadata": {
+                "description": "Name of the API Gateway instance for the Service Provider Management System",
+                "pattern": "^[a-zA-Z0-9-]{3,24}$",
+                "validation": "Must be 3-24 characters, alphanumeric and hyphens only"
+            }
+        },
+        "location": {
+            "value": "eastus",
+            "metadata": {
+                "description": "Azure region for deployment with failover support",
+                "allowedValues": [
+                    "eastus",
+                    "westus",
+                    "centralus"
+                ]
+            }
+        },
+        "skuName": {
+            "value": "WAF_v2",
+            "metadata": {
+                "description": "SKU name for API Gateway with WAF capabilities",
+                "allowedValues": [
+                    "WAF_v2"
+                ]
+            }
+        },
+        "capacity": {
+            "value": 2,
+            "metadata": {
+                "description": "Initial number of gateway instances for high availability",
+                "minimum": 2,
+                "maximum": 10,
+                "defaultValue": 2
+            }
+        },
+        "wafMode": {
+            "value": "Prevention",
+            "metadata": {
+                "description": "WAF operation mode for security policy enforcement",
+                "allowedValues": [
+                    "Detection",
+                    "Prevention"
+                ]
+            }
+        },
+        "rateLimit": {
+            "value": 1000,
+            "metadata": {
+                "description": "Maximum requests per minute per client IP for DDoS protection",
+                "minimum": 100,
+                "maximum": 10000,
+                "defaultValue": 1000
+            }
+        },
+        "sslPolicy": {
+            "value": {
+                "policyType": "Custom",
+                "minProtocolVersion": "TLSv1_2",
+                "cipherSuites": [
+                    "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+                    "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+                ]
+            },
+            "metadata": {
+                "description": "SSL policy configuration for secure communication",
+                "validation": "Must enforce TLS 1.2+ with strong cipher suites"
+            }
+        },
+        "monitoring": {
+            "value": {
+                "diagnosticSettings": {
+                    "enabled": true,
+                    "retentionDays": 90
+                },
+                "metrics": {
+                    "enabled": true,
+                    "retentionDays": 90
+                },
+                "alerts": {
+                    "enabled": true,
+                    "responseTimeThreshold": 500,
+                    "errorRateThreshold": 1
+                }
+            },
+            "metadata": {
+                "description": "Monitoring configuration for API Gateway performance and health"
+            }
+        },
+        "tags": {
+            "value": {
+                "environment": "production",
+                "application": "SPMS",
+                "service": "APIGateway",
+                "owner": "Operations",
+                "criticality": "High",
+                "securityZone": "External",
+                "dataClassification": "Confidential"
+            },
+            "metadata": {
+                "description": "Resource tags for organization and security tracking"
+            }
+        }
+    }
+}
