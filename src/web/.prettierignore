@@ -1,0 +1,32 @@
+# Build output directories
+dist/*
+build/*
+.quasar/*
+
+# Dependencies
+node_modules/*
+*.min.js
+
+# Test artifacts
+coverage/*
+cypress/downloads/*
+cypress/screenshots/*
+cypress/videos/*
+
+# Type definitions
+*.d.ts
+
+# Static assets
+public/*
+src/assets/logo.svg
+src/assets/quasar-logo.svg
+
+# Package and config files
+package.json
+package-lock.json
+tsconfig.json
+tsconfig.node.json
+
+# Documentation
+*.md
+LICENSE
