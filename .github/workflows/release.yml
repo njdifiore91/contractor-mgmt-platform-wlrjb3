@@ -1,0 +1,197 @@
+name: Release Management
+
+on:
+  release:
+    types: [created, edited]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+      skip_tests:
+        description: 'Skip test execution'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DEPLOYMENT_TIMEOUT: 600
+  HEALTH_CHECK_INTERVAL: 30
+  RELEASE_VERSION: ${{ github.event.release.tag_name }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+  ROLLBACK_THRESHOLD: 5
+  HEALTH_CHECK_RETRIES: 3
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  deployments: write
+  security-events: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-version:
+    name: Validate Release Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        
+      - name: Validate Version Format
+        id: validate
+        run: |
+          VERSION=${{ github.event.release.tag_name || github.event.inputs.version }}
+          if ! [[ $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+            echo "Invalid version format. Must follow semantic versioning"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  prepare-release:
+    name: Prepare Release
+    needs: validate-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Update Version Files
+        run: |
+          echo "Updating version to ${{ needs.validate-version.outputs.version }}"
+          sed -i "s/\"version\": \".*\"/\"version\": \"${{ needs.validate-version.outputs.version }}\"/" src/web/package.json
+          sed -i "s/<Version>.*<\/Version>/<Version>${{ needs.validate-version.outputs.version }}<\/Version>/" src/backend/Directory.Build.props
+
+      - name: Generate Changelog
+        id: changelog
+        uses: github-changelog-generator/github-changelog-generator@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          future-release: ${{ needs.validate-version.outputs.version }}
+          
+      - name: Run Security Scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          config-path: .gitleaks.toml
+          verbose: true
+
+  build-artifacts:
+    name: Build Release Artifacts
+    needs: [validate-version, prepare-release]
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.validate-version.outputs.version }}
+      environment: production
+    secrets: inherit
+
+  security-scan:
+    name: Security Validation
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scan Frontend Container
+        uses: aquasecurity/trivy-action@v0.10.0
+        with:
+          image: ${{ env.DOCKER_REGISTRY }}/spms-web:${{ needs.validate-version.outputs.version }}
+          severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'trivy-web-results.sarif'
+
+      - name: Scan Backend Container
+        uses: aquasecurity/trivy-action@v0.10.0
+        with:
+          image: ${{ env.DOCKER_REGISTRY }}/spms-api:${{ needs.validate-version.outputs.version }}
+          severity: 'CRITICAL,HIGH'
+          format: 'sarif'
+          output: 'trivy-api-results.sarif'
+
+      - name: Upload Scan Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trivy-*-results.sarif
+
+  create-release:
+    name: Create GitHub Release
+    needs: [validate-version, security-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: release-artifacts
+          path: artifacts
+
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.validate-version.outputs.version }}
+          release_name: Release ${{ needs.validate-version.outputs.version }}
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./artifacts
+          asset_name: release-${{ needs.validate-version.outputs.version }}.zip
+          asset_content_type: application/zip
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [create-release, security-scan]
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: production
+      version: ${{ needs.validate-version.outputs.version }}
+    secrets: inherit
+
+  monitor-deployment:
+    name: Monitor Production Health
+    needs: deploy-production
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Service Health
+        run: |
+          attempts=0
+          while [ $attempts -lt ${{ env.HEALTH_CHECK_RETRIES }} ]; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://api.serviceprovider.com/health)
+            if [ $status -eq 200 ]; then
+              echo "Service is healthy"
+              exit 0
+            fi
+            attempts=$((attempts+1))
+            sleep ${{ env.HEALTH_CHECK_INTERVAL }}
+          done
+          echo "Service health check failed after ${{ env.HEALTH_CHECK_RETRIES }} attempts"
+          exit 1
+
+      - name: Monitor Error Rates
+        run: |
+          error_rate=$(curl -s https://api.serviceprovider.com/metrics/errors/rate)
+          if [ $error_rate -gt ${{ env.ROLLBACK_THRESHOLD }} ]; then
+            echo "Error rate exceeded threshold: $error_rate"
+            exit 1
+          fi
+
+      - name: Trigger Rollback
+        if: failure()
+        uses: ./.github/workflows/deploy.yml
+        with:
+          environment: production
+          version: ${{ needs.validate-version.outputs.version }}
+          rollback: true
