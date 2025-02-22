@@ -1,0 +1,84 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# C# files
+*.cs text diff=csharp
+*.sln text eol=crlf
+*.csproj text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+
+# Frontend files
+*.ts text eol=lf
+*.vue text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.tsx text eol=lf
+
+# Config files
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+.env text eol=lf
+.env.* text eol=lf
+*.config text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+tsconfig.json text eol=lf
+.editorconfig text eol=lf
+.gitignore text eol=lf
+
+# Documentation
+*.md text diff=markdown
+LICENSE text
+README.md text
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Database
+*.sql text eol=lf
+
+# Docker
+Dockerfile text eol=lf
+*.dockerignore text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.eot binary
+*.ttf binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.gz binary
+
+# Vector graphics
+*.svg text
+
+# Visual Studio files
+*.sln.docstates text eol=crlf
+*.suo binary
+*.user text
+*.userosscache text
+*.dbmdl binary
+*.jfm binary
+*.pfx binary
+*.publishsettings text
+
+# Development files
+.gitattributes text eol=lf
+.gitignore text eol=lf
+.npmrc text eol=lf
+.prettierrc text eol=lf
+.eslintrc text eol=lf
+.stylelintrc text eol=lf
