@@ -1,0 +1,85 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "storageAccountName": {
+            "value": "[parameters('namePrefix')]",
+            "metadata": {
+                "description": "Globally unique storage account name between 3-24 characters using only lowercase letters and numbers. Will be prefixed with environment-specific identifier."
+            }
+        },
+        "location": {
+            "value": "[parameters('regionName')]",
+            "metadata": {
+                "description": "Azure region for storage account deployment. Must support geo-redundant storage for document management requirements."
+            }
+        },
+        "sku": {
+            "value": "Standard_GRS",
+            "metadata": {
+                "description": "Storage account SKU - using GRS (Geo-Redundant Storage) to meet document storage high availability requirements and ensure data protection across regions."
+            }
+        },
+        "kind": {
+            "value": "StorageV2",
+            "metadata": {
+                "description": "Storage account kind - using V2 to enable advanced security features including Azure AD authentication, RBAC, and customer-managed keys."
+            }
+        },
+        "enableHierarchicalNamespace": {
+            "value": true,
+            "metadata": {
+                "description": "Enables hierarchical namespace for advanced document organization and security controls at folder level."
+            }
+        },
+        "minimumTlsVersion": {
+            "value": "TLS1_2",
+            "metadata": {
+                "description": "Minimum TLS version for secure data transmission as per security requirements."
+            }
+        },
+        "allowBlobPublicAccess": {
+            "value": false,
+            "metadata": {
+                "description": "Disabled public access to ensure data security compliance."
+            }
+        },
+        "networkAcls": {
+            "value": {
+                "defaultAction": "Deny",
+                "virtualNetworkRules": [],
+                "ipRules": []
+            },
+            "metadata": {
+                "description": "Network security rules - default deny all access, specific rules to be configured per environment."
+            }
+        },
+        "tags": {
+            "value": {
+                "environment": "[parameters('environmentName')]",
+                "application": "ServiceProviderSystem",
+                "component": "DocumentStorage",
+                "criticality": "High",
+                "dataClassification": "Confidential",
+                "disaster-recovery": "GeoRedundant",
+                "costCenter": "[parameters('costCenterCode')]",
+                "owner": "[parameters('teamOwner')]",
+                "securityContact": "[parameters('securityTeamEmail')]",
+                "compliance": "GDPR",
+                "lastReviewDate": "[parameters('deploymentDate')]"
+            },
+            "metadata": {
+                "description": "Comprehensive tagging for security, compliance, cost tracking, and operational management."
+            }
+        },
+        "encryption": {
+            "value": {
+                "keySource": "Microsoft.Storage",
+                "requireInfrastructureEncryption": true
+            },
+            "metadata": {
+                "description": "Storage encryption configuration ensuring data protection at rest."
+            }
+        }
+    }
+}
