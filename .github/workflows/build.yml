@@ -1,0 +1,185 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node-version: [16.x, 18.x]
+        exclude:
+          - os: windows-latest
+            node-version: 16.x
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: src/web/package-lock.json
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      with:
+        path: src/web/node_modules
+        key: npm-${{ runner.os }}-${{ hashFiles('src/web/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-
+
+    - name: Install Dependencies
+      working-directory: src/web
+      run: npm ci
+
+    - name: Lint
+      working-directory: src/web
+      run: npm run lint
+
+    - name: Type Check
+      working-directory: src/web
+      run: npm run type-check
+
+    - name: Unit Tests
+      working-directory: src/web
+      run: npm run test:unit
+
+    - name: E2E Tests
+      working-directory: src/web
+      run: npm run test:e2e
+
+    - name: Build
+      working-directory: src/web
+      run: npm run build
+
+    - name: Upload Coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-coverage-${{ matrix.os }}
+        path: src/web/coverage
+        retention-days: 14
+
+    - name: Upload Build
+      uses: actions/upload-artifact@v3
+      with:
+        name: frontend-dist-${{ matrix.os }}
+        path: src/web/dist
+        retention-days: 14
+
+  build-backend:
+    name: Build Backend
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        dotnet-version: [6.0.x]
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup .NET ${{ matrix.dotnet-version }}
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          nuget-${{ runner.os }}-
+
+    - name: Restore dependencies
+      run: dotnet restore src/backend/ServiceProvider.sln
+
+    - name: Build
+      run: dotnet build src/backend/ServiceProvider.sln --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test src/backend/ServiceProvider.sln --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage" --results-directory ./coverage
+
+    - name: Upload Coverage
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-coverage-${{ matrix.os }}
+        path: coverage
+        retention-days: 14
+
+    - name: Upload Build
+      uses: actions/upload-artifact@v3
+      with:
+        name: backend-artifacts-${{ matrix.os }}
+        path: |
+          src/backend/**/bin/Release/net6.0
+          !src/backend/**/bin/Release/net6.0/*.pdb
+        retention-days: 14
+
+  security-scan:
+    name: Security Scan
+    needs: [build-frontend, build-backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript, csharp
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        category: "/language:javascript,csharp"
+
+  deploy-artifacts:
+    name: Deploy Artifacts
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    needs: [build-frontend, build-backend, security-scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: Download Frontend Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: frontend-dist-ubuntu-latest
+        path: dist/frontend
+
+    - name: Download Backend Artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: backend-artifacts-ubuntu-latest
+        path: dist/backend
+
+    - name: Upload Combined Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: release-artifacts
+        path: dist
+        retention-days: 30
