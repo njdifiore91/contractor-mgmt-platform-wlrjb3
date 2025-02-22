@@ -1,0 +1,70 @@
+.git
+.gitignore
+
+# IDE
+.vs
+.vscode
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Dependencies
+**/node_modules/
+
+# Test files
+**/[Tt]ests/
+**/[Tt]est[Rr]esults/
+
+# User-specific files
+**/*.user
+**/*.dbmdl
+**/*.jfm
+
+# Logs
+**/*.log
+
+# Config files
+**/*.Development.json
+**/*.Local.json
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# Documentation
+README.md
+LICENSE
+CHANGELOG.md
+docs/
+
+# Project files
+*.sln
+*.DotSettings
+*.suo
+*.csproj.user
+
+# Docker files
+docker-compose*.yml
+.dockerignore
+.env
+Dockerfile*
+
+# Cache and temp files
+.cache/
+.tmp/
+**/[Tt]emp/
+**/*.tmp
+
+# Coverage reports
+**/[Cc]overage/
+**/[Cc]over/
+*.coverage
+*.coveragexml
+
+# Package files
+*.nupkg
+*.snupkg
+**/packages/
+
+# Misc
+.DS_Store
+Thumbs.db
