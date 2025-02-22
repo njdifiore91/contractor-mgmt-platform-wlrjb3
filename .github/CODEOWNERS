@@ -1,0 +1,25 @@
+# Default owners for everything in the repo
+# Unless a later match takes precedence, @devops-team will be requested for
+# review when someone opens a pull request
+* @devops-team
+
+# Backend code ownership
+/src/backend/ @backend-team
+/src/backend/src/ServiceProvider.Core/ @backend-leads
+/src/backend/src/ServiceProvider.Infrastructure/ @backend-leads
+/src/backend/tests/ @qa-team @backend-team
+
+# Frontend code ownership
+/src/web/ @frontend-team
+/src/web/src/stores/ @frontend-leads
+/src/web/src/api/ @frontend-leads @backend-leads
+/src/web/src/components/ @frontend-team
+/src/web/tests/ @qa-team @frontend-team
+
+# Infrastructure and configuration ownership
+/infrastructure/ @devops-team
+*.yml @devops-team
+*.bicep @devops-team
+*.json @devops-leads
+*.dockerfile @devops-team
+*.kubernetes @devops-leads
