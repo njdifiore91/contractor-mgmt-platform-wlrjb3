@@ -1,0 +1,223 @@
+// Global Application Styles for Service Provider Management System
+// @quasar/extras v2.0.0
+
+// Import Quasar variables and Material Icons
+@import './quasar.variables';
+@import '@quasar/extras/material-icons/material-icons.css';
+
+// Global Reset and Box Model
+*, *::before, *::after {
+  box-sizing: inherit;
+  margin: 0;
+  padding: 0;
+}
+
+// Root Element Configuration
+:root {
+  // Theme CSS Variables
+  --primary: #{$primary};
+  --primary-light: #{$primary-light};
+  --primary-dark: #{$primary-dark};
+  --secondary: #{$secondary};
+  --text-primary: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  
+  // Focus Visible Configuration
+  --focus-ring: #{$focus-ring-width} #{$focus-ring-style} #{$focus-ring-color};
+}
+
+// HTML Base Configuration
+html {
+  font-size: $font-size-base;
+  box-sizing: border-box;
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+// Body Base Styles
+body {
+  font-family: $typography-font-family;
+  font-size: $font-size-base;
+  line-height: $line-height-body;
+  color: var(--text-primary);
+  background-color: #ffffff;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color $transition-duration $transition-timing;
+}
+
+// Selection Styling
+::selection {
+  background-color: var(--primary);
+  color: white;
+}
+
+// Responsive Spacing Function
+@function responsive-spacing($property, $base-size) {
+  $spacing-map: (
+    xs: $base-size * 0.5,
+    sm: $base-size * 0.75,
+    md: $base-size,
+    lg: $base-size * 1.5,
+    xl: $base-size * 2
+  );
+  @return $spacing-map;
+}
+
+// Theme Color Function
+@function theme-color($color-name, $light-value, $dark-value) {
+  @return var(--#{$color-name}, $light-value);
+}
+
+// Layout Container
+.layout-container {
+  max-width: $breakpoint-lg;
+  margin: 0 auto;
+  padding: map-get(responsive-spacing(padding, $space-base), md);
+  
+  @media (min-width: $breakpoint-sm) {
+    padding: map-get(responsive-spacing(padding, $space-base), lg);
+  }
+  
+  @media (min-width: $breakpoint-md) {
+    padding: map-get(responsive-spacing(padding, $space-base), xl);
+  }
+}
+
+// Accessibility Utilities
+.a11y-utils {
+  // Screen Reader Only
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  // Skip Link
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary);
+    color: white;
+    padding: $space-sm $space-md;
+    z-index: $z-index-popup;
+    transition: top $transition-duration $transition-timing;
+
+    &:focus {
+      top: 0;
+    }
+  }
+
+  // Focus Visible
+  .focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: $focus-ring-offset;
+  }
+}
+
+// Theme Classes
+.theme {
+  &--light {
+    --text-primary: #{$text-primary};
+    --text-secondary: #{$text-secondary};
+    background-color: #ffffff;
+    color: var(--text-primary);
+    transition: background-color $transition-duration $transition-timing,
+                color $transition-duration $transition-timing;
+  }
+
+  &--dark {
+    --text-primary: #{$text-dark-primary};
+    --text-secondary: #{$text-dark-secondary};
+    background-color: $dark;
+    color: var(--text-primary);
+    transition: background-color $transition-duration $transition-timing,
+                color $transition-duration $transition-timing;
+  }
+}
+
+// Responsive Typography
+@mixin responsive-typography {
+  @media (max-width: $breakpoint-sm) {
+    h1 { font-size: $font-size-h1 * 0.7; }
+    h2 { font-size: $font-size-h2 * 0.7; }
+    h3 { font-size: $font-size-h3 * 0.8; }
+    h4 { font-size: $font-size-h4 * 0.8; }
+    h5 { font-size: $font-size-h5 * 0.9; }
+    h6 { font-size: $font-size-h6 * 0.9; }
+  }
+}
+
+// Apply Responsive Typography
+@include responsive-typography;
+
+// Form Elements Base Styles
+input, select, textarea {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  border: $field-border-width $field-border-style $field-border-color;
+  border-radius: $field-border-radius;
+  padding: $field-padding-vertical $field-padding-horizontal;
+  transition: border-color $transition-duration $transition-timing;
+
+  &:hover {
+    border-color: $field-hover-border-color;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 $focus-ring-width rgba($primary, 0.25);
+  }
+
+  &:disabled {
+    opacity: $opacity-disabled;
+    cursor: not-allowed;
+  }
+}
+
+// Grid System
+.grid {
+  display: grid;
+  gap: $grid-gutter;
+  grid-template-columns: repeat($grid-columns, 1fr);
+
+  @each $breakpoint, $width in $grid-breakpoints {
+    @media (min-width: $width) {
+      &--#{$breakpoint} {
+        grid-template-columns: repeat($grid-columns, 1fr);
+      }
+    }
+  }
+}
+
+// High Contrast Mode Support
+@media (forced-colors: active) {
+  :root {
+    --primary: CanvasText;
+    --primary-light: CanvasText;
+    --primary-dark: CanvasText;
+    --secondary: CanvasText;
+  }
+}
+
+// Print Styles
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
