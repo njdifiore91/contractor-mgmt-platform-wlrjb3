@@ -1,0 +1,176 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appServicePlanName": {
+            "type": "string",
+            "description": "Name of the App Service Plan",
+            "minLength": 1,
+            "maxLength": 40
+        },
+        "webAppName": {
+            "type": "string", 
+            "description": "Name of the Web Application",
+            "minLength": 2,
+            "maxLength": 60
+        },
+        "apiAppName": {
+            "type": "string",
+            "description": "Name of the API Application",
+            "minLength": 2,
+            "maxLength": 60
+        },
+        "location": {
+            "type": "string",
+            "description": "Azure region for deployment"
+        },
+        "skuName": {
+            "type": "string",
+            "description": "SKU name for App Service Plan",
+            "defaultValue": "P2v3",
+            "allowedValues": [
+                "P1v3",
+                "P2v3",
+                "P3v3"
+            ]
+        },
+        "skuCapacity": {
+            "type": "int",
+            "description": "Number of instances",
+            "defaultValue": 2,
+            "minValue": 2,
+            "maxValue": 10
+        },
+        "tags": {
+            "type": "object",
+            "description": "Resource tags for organization"
+        }
+    },
+    "variables": {
+        "webAppHostName": "[reference(resourceId('Microsoft.Web/sites', parameters('webAppName'))).defaultHostName]",
+        "apiAppHostName": "[reference(resourceId('Microsoft.Web/sites', parameters('apiAppName'))).defaultHostName]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('appServicePlanName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "[parameters('skuName')]",
+                "tier": "PremiumV3",
+                "size": "[parameters('skuName')]",
+                "family": "Pv3",
+                "capacity": "[parameters('skuCapacity')]"
+            },
+            "kind": "app",
+            "properties": {
+                "perSiteScaling": false,
+                "elasticScaleEnabled": true,
+                "maximumElasticWorkerCount": 10,
+                "isSpot": false,
+                "reserved": false,
+                "isXenon": false,
+                "hyperV": false,
+                "targetWorkerCount": "[parameters('skuCapacity')]",
+                "targetWorkerSizeId": 3,
+                "zoneRedundant": true
+            },
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('webAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "siteConfig": {
+                    "nodeVersion": "18.x",
+                    "alwaysOn": true,
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "ftpsState": "Disabled",
+                    "healthCheckPath": "/health",
+                    "autoHealEnabled": true,
+                    "cors": {
+                        "allowedOrigins": ["*"]
+                    },
+                    "appSettings": [
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('Microsoft.Insights/components', 'spms-ai')).InstrumentationKey]"
+                        },
+                        {
+                            "name": "APPINSIGHTS_CONNECTIONSTRING",
+                            "value": "[reference(resourceId('Microsoft.Insights/components', 'spms-ai')).ConnectionString]"
+                        },
+                        {
+                            "name": "WEBSITE_NODE_DEFAULT_VERSION",
+                            "value": "18.x"
+                        }
+                    ]
+                },
+                "httpsOnly": true,
+                "clientAffinityEnabled": false
+            },
+            "tags": "[parameters('tags')]"
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2022-03-01",
+            "name": "[parameters('apiAppName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+            ],
+            "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "siteConfig": {
+                    "netFrameworkVersion": "v6.0",
+                    "alwaysOn": true,
+                    "http20Enabled": true,
+                    "minTlsVersion": "1.2",
+                    "ftpsState": "Disabled",
+                    "healthCheckPath": "/api/health",
+                    "autoHealEnabled": true,
+                    "cors": {
+                        "allowedOrigins": [
+                            "[concat('https://', reference(resourceId('Microsoft.Web/sites', parameters('webAppName'))).defaultHostName)]"
+                        ]
+                    },
+                    "appSettings": [
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(resourceId('Microsoft.Insights/components', 'spms-ai')).InstrumentationKey]"
+                        },
+                        {
+                            "name": "APPINSIGHTS_CONNECTIONSTRING",
+                            "value": "[reference(resourceId('Microsoft.Insights/components', 'spms-ai')).ConnectionString]"
+                        },
+                        {
+                            "name": "ASPNETCORE_ENVIRONMENT",
+                            "value": "Production"
+                        }
+                    ]
+                },
+                "httpsOnly": true,
+                "clientAffinityEnabled": false
+            },
+            "tags": "[parameters('tags')]"
+        }
+    ],
+    "outputs": {
+        "webAppHostName": {
+            "type": "string",
+            "value": "[variables('webAppHostName')]"
+        },
+        "apiAppHostName": {
+            "type": "string",
+            "value": "[variables('apiAppHostName')]"
+        }
+    }
+}
