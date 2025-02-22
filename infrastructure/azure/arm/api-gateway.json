@@ -1,0 +1,284 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "apiGatewayName": {
+            "type": "string",
+            "description": "Name of the API Gateway instance",
+            "minLength": 3,
+            "maxLength": 24,
+            "metadata": {
+                "description": "Name of the API Gateway for the Service Provider Management System"
+            }
+        },
+        "location": {
+            "type": "string",
+            "description": "Azure region for deployment",
+            "defaultValue": "[resourceGroup().location]"
+        },
+        "skuName": {
+            "type": "string",
+            "description": "SKU name for API Gateway",
+            "defaultValue": "WAF_v2",
+            "allowedValues": [
+                "Standard_v2",
+                "WAF_v2"
+            ]
+        },
+        "capacity": {
+            "type": "int",
+            "description": "Initial number of gateway instances",
+            "defaultValue": 2,
+            "minValue": 2,
+            "maxValue": 10
+        },
+        "wafMode": {
+            "type": "string",
+            "description": "WAF operation mode",
+            "defaultValue": "Prevention",
+            "allowedValues": [
+                "Detection",
+                "Prevention"
+            ]
+        },
+        "rateLimit": {
+            "type": "int",
+            "description": "Maximum requests per minute per client IP",
+            "defaultValue": 1000,
+            "minValue": 100,
+            "maxValue": 10000
+        }
+    },
+    "variables": {
+        "appServicePlanName": "[concat(parameters('apiGatewayName'), '-plan')]",
+        "wafPolicyName": "[concat(parameters('apiGatewayName'), '-waf-policy')]",
+        "defaultBackendPoolName": "default-backend-pool",
+        "frontendIPConfigName": "[concat(parameters('apiGatewayName'), '-feip')]",
+        "frontendPortName": "[concat(parameters('apiGatewayName'), '-feport')]",
+        "httpListenerName": "[concat(parameters('apiGatewayName'), '-listener')]",
+        "backendHttpSettingsName": "[concat(parameters('apiGatewayName'), '-be-htst')]",
+        "backendAddressPoolName": "[concat(parameters('apiGatewayName'), '-be-pool')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies",
+            "apiVersion": "2021-05-01",
+            "name": "[variables('wafPolicyName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "policySettings": {
+                    "state": "Enabled",
+                    "mode": "[parameters('wafMode')]",
+                    "requestBodyCheck": true,
+                    "maxRequestBodySizeInKb": 128,
+                    "fileUploadLimitInMb": 100,
+                    "requestBodyInspection": true
+                },
+                "customRules": [
+                    {
+                        "name": "RateLimitRule",
+                        "priority": 1,
+                        "ruleType": "RateLimitRule",
+                        "matchConditions": [
+                            {
+                                "matchVariables": [
+                                    {
+                                        "variableName": "RemoteAddr"
+                                    }
+                                ],
+                                "operator": "IPMatch",
+                                "matchValues": ["*"]
+                            }
+                        ],
+                        "action": "Block",
+                        "rateLimitThreshold": "[parameters('rateLimit')]",
+                        "rateLimitDurationInMinutes": 1
+                    }
+                ],
+                "managedRules": {
+                    "managedRuleSets": [
+                        {
+                            "ruleSetType": "OWASP",
+                            "ruleSetVersion": "3.2",
+                            "ruleGroupOverrides": []
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2021-03-01",
+            "name": "[variables('appServicePlanName')]",
+            "location": "[parameters('location')]",
+            "sku": {
+                "name": "[parameters('skuName')]",
+                "capacity": "[parameters('capacity')]"
+            },
+            "kind": "linux",
+            "properties": {
+                "reserved": true,
+                "zoneRedundant": true
+            }
+        },
+        {
+            "type": "Microsoft.Network/applicationGateways",
+            "apiVersion": "2021-05-01",
+            "name": "[parameters('apiGatewayName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/ApplicationGatewayWebApplicationFirewallPolicies', variables('wafPolicyName'))]"
+            ],
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "zones": ["1", "2", "3"],
+            "properties": {
+                "sku": {
+                    "name": "[parameters('skuName')]",
+                    "tier": "WAF_v2",
+                    "capacity": "[parameters('capacity')]"
+                },
+                "enableHttp2": true,
+                "webApplicationFirewallConfiguration": {
+                    "enabled": true,
+                    "firewallMode": "[parameters('wafMode')]",
+                    "ruleSetType": "OWASP",
+                    "ruleSetVersion": "3.2"
+                },
+                "autoscaleConfiguration": {
+                    "minCapacity": 2,
+                    "maxCapacity": 10
+                },
+                "gatewayIPConfigurations": [
+                    {
+                        "name": "[concat(parameters('apiGatewayName'), '-ip-config')]",
+                        "properties": {
+                            "subnet": {
+                                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', 'vnet'), '/subnets/gateway-subnet')]"
+                            }
+                        }
+                    }
+                ],
+                "frontendIPConfigurations": [
+                    {
+                        "name": "[variables('frontendIPConfigName')]",
+                        "properties": {
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('apiGatewayName'), '-pip'))]"
+                            }
+                        }
+                    }
+                ],
+                "frontendPorts": [
+                    {
+                        "name": "[variables('frontendPortName')]",
+                        "properties": {
+                            "port": 443
+                        }
+                    }
+                ],
+                "backendAddressPools": [
+                    {
+                        "name": "[variables('backendAddressPoolName')]"
+                    }
+                ],
+                "backendHttpSettingsCollection": [
+                    {
+                        "name": "[variables('backendHttpSettingsName')]",
+                        "properties": {
+                            "port": 443,
+                            "protocol": "Https",
+                            "cookieBasedAffinity": "Disabled",
+                            "requestTimeout": 30,
+                            "pickHostNameFromBackendAddress": true,
+                            "probe": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/probes/health-probe')]"
+                            }
+                        }
+                    }
+                ],
+                "httpListeners": [
+                    {
+                        "name": "[variables('httpListenerName')]",
+                        "properties": {
+                            "frontendIPConfiguration": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/frontendIPConfigurations/', variables('frontendIPConfigName'))]"
+                            },
+                            "frontendPort": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/frontendPorts/', variables('frontendPortName'))]"
+                            },
+                            "protocol": "Https",
+                            "sslCertificate": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/sslCertificates/ssl-cert')]"
+                            }
+                        }
+                    }
+                ],
+                "probes": [
+                    {
+                        "name": "health-probe",
+                        "properties": {
+                            "protocol": "Https",
+                            "path": "/health",
+                            "interval": 30,
+                            "timeout": 30,
+                            "unhealthyThreshold": 3,
+                            "pickHostNameFromBackendHttpSettings": true,
+                            "minServers": 0,
+                            "match": {
+                                "statusCodes": ["200-399"]
+                            }
+                        }
+                    }
+                ],
+                "requestRoutingRules": [
+                    {
+                        "name": "default-rule",
+                        "properties": {
+                            "ruleType": "Basic",
+                            "httpListener": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/httpListeners/', variables('httpListenerName'))]"
+                            },
+                            "backendAddressPool": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/backendAddressPools/', variables('backendAddressPoolName'))]"
+                            },
+                            "backendHttpSettings": {
+                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName')), '/backendHttpSettingsCollection/', variables('backendHttpSettingsName'))]"
+                            }
+                        }
+                    }
+                ],
+                "monitoring": {
+                    "applicationInsights": {
+                        "enabled": true,
+                        "instrumentationKey": "[reference('app-insights').instrumentationKey]",
+                        "samplingPercentage": 100,
+                        "workspaceId": "[reference('app-insights').workspaceId]"
+                    },
+                    "metrics": {
+                        "enabled": true,
+                        "retentionPolicy": {
+                            "days": 90,
+                            "enabled": true
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "apiGatewayId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Network/applicationGateways', parameters('apiGatewayName'))]"
+        },
+        "apiGatewayUrl": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', concat(parameters('apiGatewayName'), '-pip'))).dnsSettings.fqdn]"
+        },
+        "appServicePlanId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+        }
+    }
+}
