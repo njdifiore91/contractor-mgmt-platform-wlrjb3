@@ -1,0 +1,149 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "redisCacheName": {
+            "type": "string",
+            "description": "Name of the Redis Cache instance",
+            "metadata": {
+                "description": "Must be globally unique and between 1-63 characters"
+            },
+            "minLength": 1,
+            "maxLength": 63
+        },
+        "location": {
+            "type": "string",
+            "description": "Azure region for Redis Cache deployment",
+            "defaultValue": "[resourceGroup().location]",
+            "metadata": {
+                "description": "Location for all resources"
+            }
+        },
+        "redisCacheSku": {
+            "type": "string",
+            "description": "Redis Cache pricing tier",
+            "defaultValue": "Premium",
+            "allowedValues": [
+                "Basic",
+                "Standard",
+                "Premium"
+            ],
+            "metadata": {
+                "description": "Specify the pricing tier. Premium required for enhanced security and performance."
+            }
+        },
+        "redisCacheFamily": {
+            "type": "string",
+            "description": "Redis Cache family type",
+            "defaultValue": "P",
+            "allowedValues": [
+                "C",
+                "P"
+            ],
+            "metadata": {
+                "description": "C = Basic/Standard, P = Premium"
+            }
+        },
+        "redisCacheCapacity": {
+            "type": "int",
+            "description": "Redis Cache instance capacity",
+            "defaultValue": 1,
+            "allowedValues": [
+                1,
+                2,
+                3,
+                4
+            ],
+            "metadata": {
+                "description": "Specify the size of the Redis cache to deploy"
+            }
+        },
+        "enableNonSslPort": {
+            "type": "bool",
+            "description": "Enable non-SSL port",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Specify whether to allow non-SSL connections (disabled by default for security)"
+            }
+        },
+        "tags": {
+            "type": "object",
+            "description": "Resource tags",
+            "defaultValue": {
+                "application": "ServiceProviderSystem",
+                "component": "Cache",
+                "environment": "Production"
+            }
+        }
+    },
+    "variables": {
+        "diagnosticsStorageAccountName": "[concat('diag', uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Cache/Redis",
+            "apiVersion": "2021-06-01",
+            "name": "[parameters('redisCacheName')]",
+            "location": "[parameters('location')]",
+            "tags": "[parameters('tags')]",
+            "properties": {
+                "sku": {
+                    "name": "[parameters('redisCacheSku')]",
+                    "family": "[parameters('redisCacheFamily')]",
+                    "capacity": "[parameters('redisCacheCapacity')]"
+                },
+                "enableNonSslPort": "[parameters('enableNonSslPort')]",
+                "minimumTlsVersion": "1.2",
+                "redisConfiguration": {
+                    "maxmemory-policy": "allkeys-lru",
+                    "maxfragmentationmemory-reserved": "50",
+                    "maxmemory-reserved": "50",
+                    "maxmemory-delta": "50",
+                    "notify-keyspace-events": "KEA",
+                    "timeout": "5000"
+                },
+                "publicNetworkAccess": "Enabled",
+                "redisVersion": "6.0",
+                "staticIP": "",
+                "subnet": "",
+                "persistentDataPersistenceEnabled": true,
+                "aofEnabled": true,
+                "aofFrequency": "1s"
+            }
+        },
+        {
+            "type": "Microsoft.Cache/redis/providers/diagnosticSettings",
+            "apiVersion": "2021-05-01-preview",
+            "name": "[concat(parameters('redisCacheName'), '/Microsoft.Insights/service')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Cache/Redis', parameters('redisCacheName'))]"
+            ],
+            "properties": {
+                "metrics": [
+                    {
+                        "category": "AllMetrics",
+                        "enabled": true,
+                        "retentionPolicy": {
+                            "days": 30,
+                            "enabled": true
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "outputs": {
+        "redisCacheHostName": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.Cache/Redis', parameters('redisCacheName'))).hostName]"
+        },
+        "redisCachePrimaryKey": {
+            "type": "securestring",
+            "value": "[listKeys(resourceId('Microsoft.Cache/Redis', parameters('redisCacheName')), '2021-06-01').primaryKey]"
+        },
+        "redisCacheConnectionString": {
+            "type": "securestring",
+            "value": "[concat(reference(resourceId('Microsoft.Cache/Redis', parameters('redisCacheName'))).hostName, ',abortConnect=false,ssl=true,password=', listKeys(resourceId('Microsoft.Cache/Redis', parameters('redisCacheName')), '2021-06-01').primaryKey)]"
+        }
+    }
+}
