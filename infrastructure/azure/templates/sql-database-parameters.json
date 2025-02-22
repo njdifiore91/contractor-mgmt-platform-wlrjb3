@@ -1,0 +1,119 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "serverName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Azure SQL Server instance",
+                "validation": "Must be globally unique and follow naming convention"
+            },
+            "value": "spms-sql"
+        },
+        "databaseName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the SQL database for Service Provider Management System",
+                "validation": "Must follow organizational naming standards"
+            },
+            "value": "ServiceProviderDB"
+        },
+        "environmentName": {
+            "type": "string",
+            "metadata": {
+                "description": "Deployment environment identifier",
+                "allowedValues": ["dev", "staging", "prod"]
+            },
+            "value": "[parameters('environmentName')]"
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure region for primary database deployment",
+                "validation": "Must be a valid Azure region with Business Critical tier support"
+            },
+            "value": "[resourceGroup().location]"
+        },
+        "administratorLogin": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL Server administrator username stored in Key Vault",
+                "security": "Managed through Key Vault rotation policy"
+            },
+            "reference": {
+                "keyVault": {
+                    "id": "[parameters('keyVaultResourceId')]"
+                },
+                "secretName": "sqlAdminUsername"
+            }
+        },
+        "administratorLoginPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "SQL Server administrator password stored in Key Vault",
+                "security": "Requires minimum 12 characters with complexity",
+                "rotation": "90 days maximum lifetime"
+            },
+            "reference": {
+                "keyVault": {
+                    "id": "[parameters('keyVaultResourceId')]"
+                },
+                "secretName": "sqlAdminPassword"
+            }
+        },
+        "skuName": {
+            "type": "string",
+            "metadata": {
+                "description": "SQL Database SKU name for Business Critical tier",
+                "performance": "Gen5 hardware with 2 vCores",
+                "availability": "99.995% SLA with local HA and geo-replication support"
+            },
+            "value": "BC_Gen5_2"
+        },
+        "maxSizeBytes": {
+            "type": "int",
+            "metadata": {
+                "description": "Maximum size for the database in bytes",
+                "validation": "Must not exceed Business Critical tier limits",
+                "monitoring": "Alert at 80% utilization"
+            },
+            "value": 268435456000
+        },
+        "enableAuditingSettings": {
+            "type": "bool",
+            "metadata": {
+                "description": "Enable SQL auditing for compliance and security monitoring",
+                "retention": "365 days minimum retention",
+                "compliance": "Meets regulatory requirements"
+            },
+            "value": true
+        },
+        "enableThreatDetection": {
+            "type": "bool",
+            "metadata": {
+                "description": "Enable Advanced Threat Protection",
+                "security": "Monitors for suspicious activities and potential threats",
+                "alerts": "Sends notifications to security contacts"
+            },
+            "value": true
+        },
+        "enableGeoReplication": {
+            "type": "bool",
+            "metadata": {
+                "description": "Enable geo-replication for disaster recovery",
+                "rpo": "5 seconds maximum data loss",
+                "rto": "30 seconds failover time"
+            },
+            "value": true
+        },
+        "backupRetentionDays": {
+            "type": "int",
+            "metadata": {
+                "description": "Number of days to retain automated backups",
+                "compliance": "Meets data retention requirements",
+                "recovery": "Supports point-in-time restore"
+            },
+            "value": 35
+        }
+    }
+}
