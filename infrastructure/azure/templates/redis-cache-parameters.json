@@ -1,0 +1,28 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "redisCacheName": {
+            "value": "[concat('redis-', resourceGroup().name)]"
+        },
+        "redisCacheSku": {
+            "value": "Premium"
+        },
+        "redisCacheFamily": {
+            "value": "P"
+        },
+        "redisCacheCapacity": {
+            "value": 1
+        },
+        "enableNonSslPort": {
+            "value": false
+        },
+        "tags": {
+            "value": {
+                "application": "ServiceProviderSystem",
+                "component": "Cache",
+                "environment": "[parameters('environment')]"
+            }
+        }
+    }
+}
