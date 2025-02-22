@@ -1,0 +1,79 @@
+# Dependencies
+node_modules/
+.npm
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build Output
+dist/
+.quasar/
+dist-ssr
+*.local
+build/
+out/
+.output/
+.nuxt/
+
+# IDE & Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Testing
+coverage/
+/cypress/videos/
+/cypress/screenshots/
+.nyc_output/
+test-results/
+playwright-report/
+e2e-results/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+*.env
+.env.backup
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Temporary Files
+*.tmp
+*.temp
+*.bak
+*.swp
+*.cache
+.temp/
+.tmp/
+.cache/
