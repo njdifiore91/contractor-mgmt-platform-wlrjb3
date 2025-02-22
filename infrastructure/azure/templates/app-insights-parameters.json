@@ -1,0 +1,119 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appInsightsName": {
+            "value": "[parameters('environmentPrefix')]-spms-ai",
+            "metadata": {
+                "description": "Name of the Application Insights instance for the Service Provider Management System",
+                "pattern": "^[a-zA-Z0-9-]{3,24}$",
+                "validation": "Must be 3-24 characters, alphanumeric and hyphens only"
+            }
+        },
+        "location": {
+            "value": "[parameters('deploymentLocation')]",
+            "metadata": {
+                "description": "Azure region where Application Insights will be deployed",
+                "pattern": "^[a-zA-Z0-9]+$",
+                "validation": "Must be a valid Azure region name"
+            }
+        },
+        "kind": {
+            "value": "web",
+            "metadata": {
+                "description": "Type of Application Insights resource for web application monitoring",
+                "allowedValues": [
+                    "web",
+                    "other"
+                ]
+            }
+        },
+        "retentionInDays": {
+            "value": 90,
+            "metadata": {
+                "description": "Number of days to retain Application Insights data",
+                "minimum": 30,
+                "maximum": 730,
+                "defaultValue": 90
+            }
+        },
+        "samplingPercentage": {
+            "value": 100,
+            "metadata": {
+                "description": "Percentage of telemetry data to collect",
+                "minimum": 0,
+                "maximum": 100,
+                "defaultValue": 100
+            }
+        },
+        "dailyQuota": {
+            "value": 100,
+            "metadata": {
+                "description": "Daily data volume cap in GB",
+                "minimum": 0,
+                "maximum": 1000,
+                "defaultValue": 100
+            }
+        },
+        "ingestionMode": {
+            "value": "ApplicationInsights",
+            "metadata": {
+                "description": "Data ingestion mode for the Application Insights instance",
+                "allowedValues": [
+                    "ApplicationInsights",
+                    "ApplicationInsightsWithDiagnosticSettings",
+                    "LogAnalytics"
+                ]
+            }
+        },
+        "publicNetworkAccessForIngestion": {
+            "value": "Enabled",
+            "metadata": {
+                "description": "Controls public network access for data ingestion",
+                "allowedValues": [
+                    "Enabled",
+                    "Disabled"
+                ]
+            }
+        },
+        "publicNetworkAccessForQuery": {
+            "value": "Enabled",
+            "metadata": {
+                "description": "Controls public network access for data query",
+                "allowedValues": [
+                    "Enabled",
+                    "Disabled"
+                ]
+            }
+        },
+        "tags": {
+            "value": {
+                "environment": "[parameters('environmentName')]",
+                "application": "SPMS",
+                "service": "Monitoring",
+                "owner": "Operations",
+                "costCenter": "[parameters('costCenter')]",
+                "criticality": "High",
+                "dataRetention": "90days",
+                "deploymentDate": "[parameters('deploymentDate')]"
+            },
+            "metadata": {
+                "description": "Resource tags for organization and billing tracking",
+                "required": [
+                    "environment",
+                    "application",
+                    "service",
+                    "owner"
+                ],
+                "validation": "Must include all required tags with valid values"
+            }
+        },
+        "workspaceResourceId": {
+            "value": "[parameters('logAnalyticsWorkspaceId')]",
+            "metadata": {
+                "description": "Resource ID of the Log Analytics workspace for data export",
+                "pattern": "^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.OperationalInsights/workspaces/[^/]+$"
+            }
+        }
+    }
+}
