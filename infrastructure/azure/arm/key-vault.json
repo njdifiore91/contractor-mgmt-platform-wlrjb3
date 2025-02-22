@@ -1,0 +1,135 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "Name of the Key Vault, must be globally unique and follow naming conventions"
+            },
+            "minLength": 3,
+            "maxLength": 24,
+            "pattern": "^[a-zA-Z0-9-]*$"
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure region for Key Vault deployment, must align with data residency requirements"
+            }
+        },
+        "skuName": {
+            "type": "string",
+            "defaultValue": "Premium",
+            "allowedValues": [
+                "Standard",
+                "Premium"
+            ],
+            "metadata": {
+                "description": "SKU name for Key Vault (Premium required for HSM-backed keys and enhanced security)"
+            }
+        },
+        "softDeleteRetentionInDays": {
+            "type": "int",
+            "defaultValue": 90,
+            "minValue": 7,
+            "maxValue": 90,
+            "metadata": {
+                "description": "Soft delete retention period in days"
+            }
+        },
+        "enablePurgeProtection": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable purge protection to prevent data loss and meet compliance requirements"
+            }
+        },
+        "enableRbacAuthorization": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Enable RBAC for granular access control and audit compliance"
+            }
+        },
+        "networkAcls": {
+            "type": "object",
+            "defaultValue": {
+                "defaultAction": "Deny",
+                "bypass": "AzureServices",
+                "ipRules": [],
+                "virtualNetworkRules": []
+            },
+            "metadata": {
+                "description": "Network security controls for Key Vault access"
+            }
+        },
+        "enabledForDeployment": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Allows Azure Virtual Machines to retrieve certificates"
+            }
+        },
+        "enabledForTemplateDeployment": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Allows ARM templates to retrieve secrets"
+            }
+        },
+        "enabledForDiskEncryption": {
+            "type": "bool",
+            "defaultValue": true,
+            "metadata": {
+                "description": "Allows Azure Disk Encryption to retrieve secrets and keys"
+            }
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2021-10-01",
+            "name": "[parameters('keyVaultName')]",
+            "location": "[parameters('location')]",
+            "properties": {
+                "enableRbacAuthorization": "[parameters('enableRbacAuthorization')]",
+                "enableSoftDelete": true,
+                "enablePurgeProtection": "[parameters('enablePurgeProtection')]",
+                "softDeleteRetentionInDays": "[parameters('softDeleteRetentionInDays')]",
+                "tenantId": "[subscription().tenantId]",
+                "sku": {
+                    "family": "A",
+                    "name": "[parameters('skuName')]"
+                },
+                "networkAcls": "[parameters('networkAcls')]",
+                "enabledForDeployment": "[parameters('enabledForDeployment')]",
+                "enabledForDiskEncryption": "[parameters('enabledForDiskEncryption')]",
+                "enabledForTemplateDeployment": "[parameters('enabledForTemplateDeployment')]"
+            },
+            "tags": {
+                "application": "ServiceProviderSystem",
+                "environment": "Production",
+                "criticality": "High",
+                "security": "Confidential",
+                "compliance": "ISO27001",
+                "dataClassification": "Sensitive",
+                "backup": "Required",
+                "dr": "Critical"
+            }
+        }
+    ],
+    "outputs": {
+        "keyVaultName": {
+            "type": "string",
+            "value": "[parameters('keyVaultName')]"
+        },
+        "keyVaultResourceId": {
+            "type": "string",
+            "value": "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+        },
+        "keyVaultUri": {
+            "type": "string",
+            "value": "[reference(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))).vaultUri]"
+        }
+    }
+}
