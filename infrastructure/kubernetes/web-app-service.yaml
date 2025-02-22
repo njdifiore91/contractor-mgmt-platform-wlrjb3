@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-service
+  namespace: service-provider
+  labels:
+    app: web-app
+    tier: frontend
+    component: web-interface
+    environment: production
+    version: "1.0.0"
+    managed-by: kubernetes
+  annotations:
+    # Monitoring annotations
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+    service.beta.kubernetes.io/monitor: "true"
+    # Documentation
+    description: "Vue.js web application with Quasar Framework service"
+    maintainer: "Service Provider Management System Team"
+
+spec:
+  type: ClusterIP  # Internal cluster access for security
+  
+  ports:
+    - name: http
+      port: 80  # Service port
+      targetPort: 80  # Container port (matches Dockerfile EXPOSE)
+      protocol: TCP
+  
+  selector:
+    app: web-app
+    tier: frontend
+  
+  # Load balancing configuration
+  sessionAffinity: None  # Enable proper load distribution
+  publishNotReadyAddresses: false  # Only route to ready pods
+  
+  # Traffic policy for optimal routing
+  internalTrafficPolicy: Cluster
+  
+  # Health check configuration
+  healthCheckNodePort: 0  # Disabled for ClusterIP
+  
+  # Advanced load balancing settings
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800  # 3 hours session timeout if needed
