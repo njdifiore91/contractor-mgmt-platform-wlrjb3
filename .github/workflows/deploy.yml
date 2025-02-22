@@ -1,0 +1,217 @@
+name: Deploy Service Provider Management System
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  NODE_VERSION: '18.x'
+  DOTNET_VERSION: '6.0.x'
+  DOCKER_BUILDKIT: '1'
+  DEPLOYMENT_ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+
+permissions:
+  id-token: write
+  contents: read
+  security-events: write
+  deployments: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Validate Bicep Templates
+        run: |
+          az bicep build --file infrastructure/azure/bicep/main.bicep
+          az deployment sub validate \
+            --location eastus \
+            --template-file infrastructure/azure/bicep/main.bicep \
+            --parameters environmentName=${{ env.DEPLOYMENT_ENVIRONMENT }}
+
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build Web App
+        run: |
+          cd src/web
+          npm ci
+          npm run build
+          npm run test:unit
+
+      - name: Build API Gateway
+        run: |
+          cd src/backend
+          dotnet restore
+          dotnet build --configuration Release
+          dotnet test --no-build --configuration Release
+
+      - name: Build Docker Images
+        run: |
+          docker buildx build \
+            --file infrastructure/docker/web-app.dockerfile \
+            --tag ${{ env.ACR_LOGIN_SERVER }}/spms-web:${{ github.sha }} \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new \
+            --load \
+            .
+
+          docker buildx build \
+            --file infrastructure/docker/api-gateway.dockerfile \
+            --tag ${{ env.ACR_LOGIN_SERVER }}/spms-api:${{ github.sha }} \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new \
+            --load \
+            .
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Deploy Infrastructure
+        run: |
+          pwsh ./infrastructure/azure/scripts/deploy-infrastructure.ps1 \
+            -SubscriptionId ${{ env.AZURE_SUBSCRIPTION_ID }} \
+            -Location eastus \
+            -Environment staging
+
+      - name: Setup Monitoring
+        run: |
+          pwsh ./infrastructure/azure/scripts/setup-monitoring.ps1 \
+            -ResourceGroupName "spms-staging-rg" \
+            -Location eastus \
+            -Environment Staging
+
+      - name: Deploy Applications
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'spms-web-staging'
+          images: ${{ env.ACR_LOGIN_SERVER }}/spms-web:${{ github.sha }}
+
+      - name: Deploy API Gateway
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'spms-api-staging'
+          images: ${{ env.ACR_LOGIN_SERVER }}/spms-api:${{ github.sha }}
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Deploy Infrastructure
+        run: |
+          pwsh ./infrastructure/azure/scripts/deploy-infrastructure.ps1 \
+            -SubscriptionId ${{ env.AZURE_SUBSCRIPTION_ID }} \
+            -Location eastus \
+            -Environment production
+
+      - name: Setup Monitoring
+        run: |
+          pwsh ./infrastructure/azure/scripts/setup-monitoring.ps1 \
+            -ResourceGroupName "spms-production-rg" \
+            -Location eastus \
+            -Environment Production
+
+      - name: Deploy Applications
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'spms-web-production'
+          images: ${{ env.ACR_LOGIN_SERVER }}/spms-web:${{ github.sha }}
+
+      - name: Deploy API Gateway
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: 'spms-api-production'
+          images: ${{ env.ACR_LOGIN_SERVER }}/spms-api:${{ github.sha }}
+
+      - name: Verify Deployment
+        run: |
+          pwsh ./infrastructure/azure/scripts/deploy-infrastructure.ps1 \
+            -SubscriptionId ${{ env.AZURE_SUBSCRIPTION_ID }} \
+            -Location eastus \
+            -Environment production \
+            -Validate
