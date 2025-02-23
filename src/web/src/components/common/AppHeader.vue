@@ -3,6 +3,7 @@
     class="app-header bg-primary text-white"
     role="banner"
     aria-label="Main application header"
+    elevated
   >
     <q-toolbar class="app-header__toolbar">
       <!-- Navigation Toggle Button -->
@@ -17,234 +18,412 @@
         @click="toggleNavigation"
       />
 
-      <!-- Application Logo -->
-      <q-toolbar-title class="app-header__title">
-        Service Provider Management System
+      <!-- Application Logo and Title -->
+      <q-toolbar-title class="app-header__title row items-center no-wrap">
+        <q-avatar size="38px" class="q-mr-sm app-header__logo">
+          <img src="@/assets/logo.svg" alt="Company Logo">
+        </q-avatar>
+        <span class="text-weight-medium ellipsis">
+          {{ layoutType === 'admin' ? 'Admin Dashboard' : 'Service Provider Management' }}
+        </span>
       </q-toolbar-title>
 
-      <!-- Security Status Indicator -->
-      <q-chip
-        v-if="isAuthenticated"
-        :color="securityStatus.isValid ? 'positive' : 'negative'"
-        text-color="white"
-        icon="security"
-        class="app-header__security-indicator q-mr-sm"
-        aria-live="polite"
-      >
-        {{ securityStatus.isValid ? 'Secure' : 'Session Invalid' }}
-      </q-chip>
+      <!-- Right Side Actions -->
+      <div class="app-header__actions row items-center no-wrap">
+        <!-- Security Status -->
+        <q-chip
+          v-if="isAuthenticated"
+          :color="securityStatus.isValid ? 'positive' : 'negative'"
+          text-color="white"
+          icon="security"
+          size="md"
+          class="app-header__security-chip q-mr-md"
+          aria-live="polite"
+        >
+          {{ securityStatus.isValid ? 'Secure' : 'Session Invalid' }}
+        </q-chip>
 
-      <!-- User Profile Menu -->
-      <div class="app-header__profile" v-if="isAuthenticated">
+        <!-- Admin Quick Access -->
+        <q-btn
+          v-if="hasAdminAccess && layoutType !== 'admin'"
+          flat
+          dense
+          round
+          to="/admin"
+          icon="admin_panel_settings"
+          class="q-mr-md app-header__action-btn"
+        >
+          <q-tooltip>Admin Dashboard</q-tooltip>
+        </q-btn>
+
+        <!-- Notifications -->
         <q-btn
           flat
           dense
           round
+          icon="notifications"
+          class="app-header__notifications q-mr-md app-header__action-btn"
+        >
+          <q-badge
+            v-if="unreadNotifications"
+            color="negative"
+            floating
+          >
+            {{ unreadNotifications }}
+          </q-badge>
+          <q-tooltip>Notifications</q-tooltip>
+        </q-btn>
+
+        <!-- User Profile Menu -->
+        <q-btn
+          v-if="isAuthenticated"
+          flat
+          dense
+          round
           icon="account_circle"
-          aria-label="User profile menu"
-          aria-haspopup="true"
-          :aria-expanded="profileMenuOpen"
-          @click="toggleProfileMenu"
-          @keydown="handleKeyboardNavigation"
+          class="app-header__profile-btn app-header__action-btn"
         >
           <q-menu
-            v-model="profileMenuOpen"
-            auto-close
-            anchor="bottom right"
-            self="top right"
             class="app-header__profile-menu"
+            transition-show="jump-down"
+            transition-hide="jump-up"
+            auto-close
           >
-            <UserProfile />
+            <q-list style="min-width: 250px">
+              <!-- User Info -->
+              <q-item class="bg-primary text-white">
+                <q-item-section>
+                  <q-item-label class="text-weight-bold">
+                    {{ currentUser?.firstName }} {{ currentUser?.lastName }}
+                  </q-item-label>
+                  <q-item-label caption class="text-white">
+                    {{ currentUser?.email }}
+                  </q-item-label>
+                </q-item-section>
+              </q-item>
+
+              <q-separator />
+
+              <!-- Profile Actions -->
+              <q-item clickable v-ripple to="/auth/profile">
+                <q-item-section avatar>
+                  <q-icon name="person" />
+                </q-item-section>
+                <q-item-section>Profile Settings</q-item-section>
+              </q-item>
+
+              <q-item clickable v-ripple @click="handlePreferences">
+                <q-item-section avatar>
+                  <q-icon name="settings" />
+                </q-item-section>
+                <q-item-section>Preferences</q-item-section>
+              </q-item>
+
+              <q-separator />
+
+              <!-- Help & Support -->
+              <q-item clickable v-ripple to="/help">
+                <q-item-section avatar>
+                  <q-icon name="help" />
+                </q-item-section>
+                <q-item-section>Help & Support</q-item-section>
+              </q-item>
+
+              <q-separator />
+
+              <!-- Logout -->
+              <q-item clickable v-ripple @click="handleLogout" class="text-negative">
+                <q-item-section avatar>
+                  <q-icon name="logout" color="negative" />
+                </q-item-section>
+                <q-item-section>Logout</q-item-section>
+              </q-item>
+            </q-list>
           </q-menu>
         </q-btn>
       </div>
-
-      <!-- App Navigation -->
-      <AppNavigation
-        v-model:navigationCollapsed="navigationCollapsed"
-        @securityEvent="handleSecurityEvent"
-      />
     </q-toolbar>
+
   </q-header>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuth } from '@/composables/useAuth';
-import UserProfile from '@/components/auth/UserProfile.vue';
-import AppNavigation from '@/components/common/AppNavigation.vue';
+import { useQuasar } from 'quasar';
+import { UserRoleType } from '@/models/user.model';
 
-export default defineComponent({
-  name: 'AppHeader',
+interface Props {
+  navigationCollapsed: boolean;
+  layoutType?: 'default' | 'admin';
+}
 
-  components: {
-    UserProfile,
-    AppNavigation
-  },
+const props = withDefaults(defineProps<Props>(), {
+  layoutType: 'default'
+});
 
-  props: {
-    navigationCollapsed: {
-      type: Boolean,
-      default: false
-    }
-  },
+const emit = defineEmits<{
+  (e: 'update:navigation-collapsed', value: boolean): void;
+  (e: 'security-event', event: any): void;
+}>();
 
-  emits: ['update:navigationCollapsed', 'securityEvent'],
+// Composables
+const route = useRoute();
+const router = useRouter();
+const $q = useQuasar();
+const { isAuthenticated, currentUser, logout, validateSession } = useAuth();
 
-  setup(props, { emit }) {
-    const { isAuthenticated, handleLogout, validateSession, refreshToken } = useAuth();
-    const profileMenuOpen = ref(false);
-    const sessionCheckInterval = ref<number | null>(null);
-    const securityStatusRef = ref({ isValid: true });
+// State
+const securityStatus = ref({ isValid: true });
+const unreadNotifications = ref(0); // This would be connected to a notifications system
+const sessionCheckInterval = ref<number | null>(null);
 
-    // Security status monitoring
-    const updateSecurityStatus = async () => {
-      const isValid = await validateSession();
-      securityStatusRef.value = {
-        isValid,
-        lastActivity: new Date(),
-        deviceTrusted: true
-      };
-    };
+// Computed
+const hasAdminAccess = computed(() => {
+  return currentUser.value?.userRoles.some(role => role.roleId === UserRoleType.Admin) ?? false;
+});
 
-    // Toggle navigation menu with accessibility
-    const toggleNavigation = () => {
-      emit('update:navigationCollapsed', !props.navigationCollapsed);
-      // Announce state change for screen readers
-      const announcement = props.navigationCollapsed ? 'Navigation expanded' : 'Navigation collapsed';
-      announceToScreenReader(announcement);
-    };
+const showBreadcrumbs = computed(() => {
+  return !['/', '/login', '/register'].includes(route.path);
+});
 
-    // Toggle profile menu with security validation
-    const toggleProfileMenu = async () => {
-      if (await validateSession()) {
-        profileMenuOpen.value = !profileMenuOpen.value;
-      } else {
-        await handleLogout();
-      }
-    };
-
-    // Handle keyboard navigation for accessibility
-    const handleKeyboardNavigation = (event: KeyboardEvent) => {
-      switch (event.key) {
-        case 'Escape':
-          profileMenuOpen.value = false;
-          break;
-        case 'Enter':
-        case ' ':
-          event.preventDefault();
-          toggleProfileMenu();
-          break;
-      }
-    };
-
-    // Screen reader announcement utility
-    const announceToScreenReader = (message: string) => {
-      const announcement = document.createElement('div');
-      announcement.setAttribute('aria-live', 'polite');
-      announcement.setAttribute('class', 'sr-only');
-      announcement.textContent = message;
-      document.body.appendChild(announcement);
-      setTimeout(() => announcement.remove(), 1000);
-    };
-
-    // Security event handler
-    const handleSecurityEvent = (event: any) => {
-      emit('securityEvent', event);
-    };
-
-    // Initialize security monitoring
-    onMounted(async () => {
-      if (isAuthenticated.value) {
-        await updateSecurityStatus();
-        sessionCheckInterval.value = window.setInterval(async () => {
-          await updateSecurityStatus();
-          if (!securityStatusRef.value.isValid) {
-            await handleLogout();
-          }
-          await refreshToken();
-        }, 30000); // Check every 30 seconds
-      }
-    });
-
-    // Cleanup
-    onUnmounted(() => {
-      if (sessionCheckInterval.value) {
-        clearInterval(sessionCheckInterval.value);
-      }
-    });
-
+const breadcrumbs = computed(() => {
+  const pathSegments = route.path.split('/').filter(Boolean);
+  return pathSegments.map((segment, index) => {
+    const path = '/' + pathSegments.slice(0, index + 1).join('/');
     return {
-      isAuthenticated,
-      profileMenuOpen,
-      securityStatus: computed(() => securityStatusRef.value),
-      toggleNavigation,
-      toggleProfileMenu,
-      handleKeyboardNavigation,
-      handleSecurityEvent
+      path,
+      label: segment.charAt(0).toUpperCase() + segment.slice(1)
     };
+  });
+});
+
+// Methods
+const toggleNavigation = () => {
+  emit('update:navigation-collapsed', !props.navigationCollapsed);
+};
+
+const handleLogout = async () => {
+  try {
+    await logout();
+    router.push('/auth/login');
+    $q.notify({
+      type: 'positive',
+      message: 'Successfully logged out',
+      position: 'top-right'
+    });
+  } catch (error) {
+    console.error('Logout failed:', error);
+    $q.notify({
+      type: 'negative',
+      message: 'Failed to logout',
+      position: 'top-right'
+    });
+  }
+};
+
+const handlePreferences = () => {
+  router.push('/auth/preferences');
+};
+
+const updateSecurityStatus = async () => {
+  const isValid = await validateSession();
+  securityStatus.value = {
+    isValid,
+    lastCheck: new Date()
+  };
+
+  if (!isValid) {
+    emit('security-event', { type: 'SESSION_INVALID' });
+  }
+};
+
+// Lifecycle
+onMounted(() => {
+  updateSecurityStatus();
+  sessionCheckInterval.value = window.setInterval(updateSecurityStatus, 30000);
+});
+
+onUnmounted(() => {
+  if (sessionCheckInterval.value) {
+    clearInterval(sessionCheckInterval.value);
   }
 });
 </script>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .app-header {
   &__toolbar {
-    min-height: 56px;
-    padding: 0 16px;
+    min-height: var(--header-height, 72px);
+    padding: 0 var(--space-md, 16px);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm, 8px);
   }
 
   &__nav-btn {
-    margin-right: 12px;
+    margin-right: var(--space-sm, 8px);
   }
 
   &__title {
+    flex: 1 1 auto;
     font-size: 1.25rem;
     font-weight: 500;
     line-height: 1.2;
-  }
-
-  &__security-indicator {
-    font-size: 0.875rem;
-  }
-
-  &__profile {
-    margin-left: 8px;
-  }
-
-  // Screen reader only class
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
-  }
-
-  // Responsive breakpoints
-  @media (max-width: 768px) {
-    &__title {
-      font-size: 1rem;
+    padding: 0 var(--space-md, 16px);
+    min-width: 0;
+    
+    .q-avatar {
+      flex-shrink: 0;
+      width: 42px;
+      height: 42px;
     }
 
-    &__security-indicator {
-      display: none;
+    span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 
-  @media (min-width: 769px) and (max-width: 1024px) {
+  &__actions {
+    flex: 0 0 auto;
+    gap: var(--space-sm, 12px);
+    margin-left: auto;
+    padding-left: var(--space-md, 16px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  &__action-btn {
+    width: 42px !important;
+    height: 42px !important;
+    
+    .q-icon {
+      font-size: 26px !important;
+    }
+  }
+
+  &__security-chip {
+    height: 32px;
+    font-size: 13px;
+    flex-shrink: 0;
+    padding: 0 14px;
+
+    .q-icon {
+      font-size: 20px;
+      margin-right: 6px;
+    }
+  }
+
+  &__notifications {
+    position: relative;
+    
+    .q-badge {
+      top: 6px;
+      right: 6px;
+      transform: translate(50%, -50%);
+      font-size: 11px;
+      height: 20px;
+      min-width: 20px;
+      padding: 0 5px;
+    }
+  }
+
+  &__profile-menu {
+    .q-item {
+      min-height: 44px;
+      padding: var(--space-sm, 8px) var(--space-md, 16px);
+    }
+
+    .q-item-section--avatar {
+      min-width: 40px;
+      
+      .q-icon {
+        font-size: 24px;
+      }
+    }
+  }
+
+  &__logo {
+    background: transparent;
+    transition: transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+
+  // Responsive adjustments
+  @media (max-width: $breakpoint-xs) {
+    &__toolbar {
+      min-height: var(--header-height, 56px);
+      padding: 0 var(--space-sm, 8px);
+    }
+
     &__title {
       font-size: 1.125rem;
+      padding: 0 var(--space-sm, 8px);
+
+      .q-avatar {
+        width: 36px;
+        height: 36px;
+      }
+    }
+
+    &__action-btn {
+      width: 42px !important;
+      height: 42px !important;
+      
+      .q-icon {
+        font-size: 28px !important;
+      }
+    }
+
+    &__security-chip {
+      height: 32px;
+      font-size: 13px;
+      padding: 0 12px;
+
+      .q-icon {
+        font-size: 20px;
+      }
+    }
+
+    &__actions {
+      padding-left: var(--space-sm, 8px);
+      gap: var(--space-xs, 8px);
     }
   }
 
-  @media (min-width: 1025px) {
-    &__toolbar {
-      min-height: 64px;
+  @media (min-width: $breakpoint-sm) and (max-width: $breakpoint-md) {
+    &__title {
+      font-size: 1.25rem;
     }
+  }
+
+  // Dark mode adjustments
+  :root[data-theme="dark"] & {
+    &__breadcrumbs {
+      background: rgba(0, 0, 0, 0.2);
+    }
+  }
+
+  // Print styles
+  @media print {
+    display: none;
   }
 }
 </style>

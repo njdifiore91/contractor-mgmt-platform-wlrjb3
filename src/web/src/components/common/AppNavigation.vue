@@ -68,7 +68,7 @@ const defaultNavigationItems = [
     label: 'Customers',
     icon: 'business',
     route: '/dashboard/customers',
-    roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.CustomerService]
+    roles: [UserRoleType.Admin, UserRoleType.Operations]
   },
   {
     label: 'Inspectors',
@@ -114,7 +114,18 @@ const adminNavigationItems = [
 
 // Filtered navigation items based on layout type
 const filteredNavigationItems = computed(() => {
-  return props.layoutType === 'admin' ? adminNavigationItems : defaultNavigationItems;
+  const isAdmin = authStore.hasRole(UserRoleType.Admin);
+  
+  if (props.layoutType === 'admin') {
+    return adminNavigationItems;
+  }
+  
+  // For admin users in default layout, show both default and admin items
+  if (isAdmin) {
+    return [...defaultNavigationItems, ...adminNavigationItems];
+  }
+  
+  return defaultNavigationItems;
 });
 
 // Responsive design computations

@@ -132,7 +132,7 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: () => import('@/pages/error/NotFoundPage.vue'),
+      component: () => import('@/pages/error/NotFoundPage.vue' as any),
       meta: {
         title: 'Page Not Found',
         requiresAuth: false

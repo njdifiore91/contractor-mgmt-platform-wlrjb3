@@ -5,7 +5,7 @@
  */
 
 import { ref, computed, effectScope, onScopeDispose } from 'vue';
-import { useAuthStore } from '../stores/auth.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { 
     type LoginCredentials,
     type DeviceInfo,
@@ -18,12 +18,15 @@ import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import type { IUser } from '@/models/user.model';
 import { performAzureAuth, completeMfaChallenge, verifyTokenIntegrity } from '@/services/auth.service';
+import { api } from '@/utils/api.util';
+import { useStorage } from '@/composables/storage';
 
 // Security configuration constants
 const RATE_LIMIT_WINDOW = 5 * 60 * 1000; // 5 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const DEVICE_TRUST_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
-const SECURITY_CHECK_INTERVAL = 30 * 1000; // 30 seconds
+const SECURITY_CHECK_INTERVAL = 30000; // 30 seconds
+const AUTH_API_BASE = '/api/auth';
 
 interface SecurityEvent {
     type: string;
@@ -52,7 +55,7 @@ export function useAuth() {
             if (!isAuthenticated.value) return false;
 
             // Check if token is valid
-            const isTokenValid = await verifyTokenIntegrity(authStore.tokens);
+            const isTokenValid = await verifyTokenIntegrity(authStore.tokens as any);
             if (!isTokenValid) {
                 await logout();
                 return false;
@@ -132,14 +135,6 @@ export function useAuth() {
         try {
             await authStore.login(credentials);
             
-            // Show success notification
-            $q.notify({
-                type: 'positive',
-                message: 'Successfully logged in',
-                position: 'top',
-                timeout: 2000
-            });
-            
             // Navigate to dashboard or saved redirect
             const redirect = router.currentRoute.value.query.redirect as string;
             await router.push(redirect || '/dashboard');
@@ -152,13 +147,32 @@ export function useAuth() {
     };
 
     const logout = async () => {
+        isLoading.value = true;
+        error.value = null;
+        
         try {
+            const { clearUserSession } = useStorage();
+            
+            // Clear all auth state and storage
             await authStore.clearAuth();
+            await clearUserSession();
+            
+            // Clear additional storage items
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_session');
+            localStorage.removeItem('user_session');
+            sessionStorage.clear(); // Clear any session storage as well
+            
+            // Reset initialization state
             isInitialized.value = false;
-            await router.push('/auth/login');
+            
+            // Then redirect to login page
+            await router.replace('/auth/login');
         } catch (err) {
             console.error('Logout failed:', err);
             error.value = 'Failed to logout';
+        } finally {
+            isLoading.value = false;
         }
     };
 

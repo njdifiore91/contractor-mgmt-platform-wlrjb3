@@ -12,7 +12,7 @@ export const auth_routes: RouteRecordRaw[] = [
   },
   {
     path: '/auth',
-    component: () => import('../layouts/AuthLayout.vue'),
+    component: () => import('../layouts/AuthLayout.vue' as any),
     meta: {
       requiresAuth: false,
       layout: 'auth'
@@ -21,7 +21,7 @@ export const auth_routes: RouteRecordRaw[] = [
       {
         path: 'login',
         name: 'login',
-        component: () => import('../pages/auth/LoginPage.vue'),
+        component: () => import('../pages/auth/LoginPage.vue' as any),
         meta: {
           requiresAuth: false,
           title: 'Login',
@@ -32,7 +32,7 @@ export const auth_routes: RouteRecordRaw[] = [
       {
         path: 'profile',
         name: 'profile',
-        component: () => import('../pages/auth/ProfilePage.vue'),
+        component: () => import('../pages/auth/ProfilePage.vue' as any),
         meta: {
           requiresAuth: true,
           title: 'User Profile',
@@ -48,7 +48,6 @@ export const auth_routes: RouteRecordRaw[] = [
 export const default_routes: RouteRecordRaw[] = [
   {
     path: '/dashboard',
-    component: () => import('../layouts/DefaultLayout.vue'),
     meta: {
       requiresAuth: true,
       layout: 'default',
@@ -58,7 +57,7 @@ export const default_routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'dashboard',
-        component: () => import('../pages/dashboard/DashboardPage.vue'),
+        component: () => import('../pages/dashboard/DashboardPage.vue' as any),
         meta: {
           requiresAuth: true,
           title: 'Dashboard',
@@ -71,22 +70,22 @@ export const default_routes: RouteRecordRaw[] = [
           {
             path: '',
             name: 'customer-list',
-            component: () => import('../pages/customers/CustomerListPage.vue'),
+            component: () => import('../pages/customers/CustomerListPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Customers',
-              allowedRoles: ['Admin', 'Operations', 'Customer Service'],
+              allowedRoles: ['Admin', 'Operations'],
               layout: 'default'
             }
           },
           {
             path: ':id',
             name: 'customer-detail',
-            component: () => import('../pages/customers/CustomerDetailPage.vue'),
+            component: () => import('../pages/customers/CustomerDetailPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Customer Details',
-              allowedRoles: ['Admin', 'Operations', 'Customer Service'],
+              allowedRoles: ['Admin', 'Operations'],
               layout: 'default'
             }
           }
@@ -98,7 +97,7 @@ export const default_routes: RouteRecordRaw[] = [
           {
             path: '',
             name: 'inspector-list',
-            component: () => import('../pages/inspectors/InspectorListPage.vue'),
+            component: () => import('../pages/inspectors/InspectorListPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Inspectors',
@@ -109,7 +108,7 @@ export const default_routes: RouteRecordRaw[] = [
           {
             path: ':id',
             name: 'inspector-detail',
-            component: () => import('../pages/inspectors/InspectorDetailPage.vue'),
+            component: () => import('../pages/inspectors/InspectorDetailPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Inspector Details',
@@ -125,7 +124,7 @@ export const default_routes: RouteRecordRaw[] = [
           {
             path: '',
             name: 'equipment-list',
-            component: () => import('../pages/equipment/EquipmentListPage.vue'),
+            component: () => import('../pages/equipment/EquipmentListPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Equipment',
@@ -136,7 +135,7 @@ export const default_routes: RouteRecordRaw[] = [
           {
             path: ':id',
             name: 'equipment-detail',
-            component: () => import('../pages/equipment/EquipmentDetailPage.vue'),
+            component: () => import('../pages/equipment/EquipmentDetailPage.vue' as any),
             meta: {
               requiresAuth: true,
               title: 'Equipment Details',
@@ -154,7 +153,7 @@ export const default_routes: RouteRecordRaw[] = [
 export const admin_routes: RouteRecordRaw[] = [
   {
     path: '/admin',
-    component: () => import('../layouts/AdminLayout.vue'),
+    component: () => import('../layouts/AdminLayout.vue' as any),
     meta: {
       requiresAuth: true,
       requiresAdmin: true,
@@ -165,7 +164,7 @@ export const admin_routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'admin-home',
-        component: () => import('../pages/admin/AdminHomePage.vue'),
+        component: () => import('../pages/admin/AdminHomePage.vue' as any),
         meta: {
           title: 'Admin Home',
           allowedRoles: ['Admin']
@@ -174,7 +173,7 @@ export const admin_routes: RouteRecordRaw[] = [
       {
         path: 'users',
         name: 'user-management',
-        component: () => import('../pages/admin/UserManagementPage.vue'),
+        component: () => import('../pages/admin/UserManagementPage.vue' as any),
         meta: {
           title: 'User Management',
           allowedRoles: ['Admin']
@@ -183,7 +182,7 @@ export const admin_routes: RouteRecordRaw[] = [
       {
         path: 'settings',
         name: 'system-settings',
-        component: () => import('../pages/admin/SystemSettingsPage.vue'),
+        component: () => import('../pages/admin/SystemSettingsPage.vue' as any),
         meta: {
           title: 'System Settings',
           allowedRoles: ['Admin']
@@ -192,7 +191,7 @@ export const admin_routes: RouteRecordRaw[] = [
       {
         path: 'audit-logs',
         name: 'audit-logs',
-        component: () => import('../pages/admin/AuditLogsPage.vue'),
+        component: () => import('../pages/admin/AuditLogsPage.vue' as any),
         meta: {
           title: 'Audit Logs',
           allowedRoles: ['Admin']
@@ -210,7 +209,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    component: () => import('../pages/error/NotFoundPage.vue'),
+    component: () => import('../pages/error/NotFoundPage.vue' as any),
     meta: {
       title: 'Page Not Found',
       layout: 'default'
