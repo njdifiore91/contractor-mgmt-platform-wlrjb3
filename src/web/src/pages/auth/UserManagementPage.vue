@@ -1,0 +1,1 @@
+import type { IUser } from '@/models/user.model'; 

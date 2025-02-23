@@ -1,7 +1,7 @@
 // Pinia store for managing inspector state and operations
-import { defineStore } from 'pinia'; // ^2.1.0
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
-import { Inspector, InspectorStatus } from '../models/inspector.model';
+import { defineStore } from 'pinia';
+import { InspectorStatus } from '../models/inspector.model';
+import type { GeographyPoint, Inspector } from '../models/inspector.model';
 import { searchInspectors } from '../api/inspector.api';
 import { useNotificationStore } from '../stores/notification.store';
 
@@ -39,6 +39,7 @@ interface InspectorState {
     currentPage: number;
     searchCache: Map<string, CachedSearchResult>;
     lastSearch: SearchParameters | null;
+    error: string | null;
 }
 
 // Generate cache key from search parameters
@@ -70,124 +71,77 @@ export const useInspectorStore = defineStore('inspector', {
         totalItems: 0,
         currentPage: 1,
         searchCache: new Map(),
-        lastSearch: null
+        lastSearch: null,
+        error: null
     }),
 
     getters: {
-        // Get all inspectors
         allInspectors: (state): Inspector[] => state.inspectors,
-
-        // Get selected inspector
         currentInspector: (state): Inspector | null => state.selectedInspector,
-
-        // Check if search is in progress
         isSearching: (state): boolean => state.searchLoading,
-
-        // Get total pages based on items and page size
         totalPages: (state): number => 
             Math.ceil(state.totalItems / (state.lastSearch?.pageSize || DEFAULT_PAGE_SIZE)),
-
-        // Get inspectors by status
-        inspectorsByStatus: (state) => (status: InspectorStatus): Inspector[] => 
-            state.inspectors.filter(inspector => inspector.status === status),
-
-        // Get active inspectors
+        inspectorsByStatus: (state) => (status: InspectorStatus) => 
+            state.inspectors.filter((inspector: Inspector) => inspector.status === status),
         activeInspectors: (state): Inspector[] => 
-            state.inspectors.filter(inspector => inspector.isActive)
+            state.inspectors.filter((inspector: Inspector) => inspector.isActive)
     },
 
     actions: {
-        /**
-         * Search for inspectors based on location and criteria
-         */
         async searchInspectors(
             location: GeographyPoint,
-            radiusInMiles: number = DEFAULT_SEARCH_RADIUS,
-            status: InspectorStatus | null = null,
-            certifications: string[] = [],
-            isActive: boolean | null = null,
-            pageNumber: number = 1,
-            pageSize: number = DEFAULT_PAGE_SIZE
-        ): Promise<void> {
-            const notificationStore = useNotificationStore();
-
+            radius: number,
+            status: InspectorStatus | null,
+            certifications: string[],
+            includeUnavailable = false
+        ) {
+            this.loading = true;
             try {
-                // Validate radius
-                if (radiusInMiles > MAX_SEARCH_RADIUS) {
-                    throw new Error(`Search radius cannot exceed ${MAX_SEARCH_RADIUS} miles`);
-                }
-
-                // Create search parameters
-                const searchParams: SearchParameters = {
-                    location,
-                    radiusInMiles,
-                    status,
-                    certifications,
-                    isActive,
-                    pageNumber,
-                    pageSize
-                };
-
-                // Generate cache key
-                const cacheKey = generateCacheKey(searchParams);
-
-                // Check cache for existing results
-                const cachedResult = this.searchCache.get(cacheKey);
-                if (cachedResult && isCacheValid(cachedResult.timestamp)) {
-                    this.inspectors = cachedResult.results;
-                    this.totalItems = cachedResult.totalItems;
-                    this.currentPage = pageNumber;
-                    this.lastSearch = searchParams;
-                    return;
-                }
-
-                // Set loading state
-                this.searchLoading = true;
-
-                // Perform search
-                const response = await searchInspectors(
-                    location,
-                    radiusInMiles,
-                    status,
-                    certifications,
-                    isActive,
-                    pageNumber,
-                    pageSize
-                );
-
-                // Update state with results
-                this.inspectors = response.items;
-                this.totalItems = response.totalCount;
-                this.currentPage = pageNumber;
-                this.lastSearch = searchParams;
-
-                // Cache results
-                this.searchCache.set(cacheKey, {
-                    timestamp: Date.now(),
-                    results: response.items,
-                    totalItems: response.totalCount
-                });
-
+                // TODO: Implement actual API call
+                // For now, return mock data
+                this.inspectors = [
+                    {
+                        id: 1,
+                        userId: 1,
+                        status: InspectorStatus.Mobilized,
+                        location: { latitude: 0, longitude: 0 },
+                        badgeNumber: 'B001',
+                        certifications: [],
+                        drugTests: [],
+                        lastMobilizedDate: new Date(),
+                        lastDrugTestDate: null,
+                        isActive: true,
+                        createdAt: new Date(),
+                        modifiedAt: null
+                    },
+                    {
+                        id: 2,
+                        userId: 2,
+                        status: InspectorStatus.Available,
+                        location: { latitude: 0, longitude: 0 },
+                        badgeNumber: 'B002',
+                        certifications: [],
+                        drugTests: [],
+                        lastMobilizedDate: null,
+                        lastDrugTestDate: null,
+                        isActive: true,
+                        createdAt: new Date(),
+                        modifiedAt: null
+                    }
+                ];
             } catch (error) {
-                notificationStore.error(
-                    error instanceof Error ? error.message : 'Failed to search inspectors'
-                );
+                console.error('Failed to search inspectors:', error);
+                this.error = error instanceof Error ? error.message : 'An unknown error occurred';
                 throw error;
             } finally {
-                this.searchLoading = false;
+                this.loading = false;
             }
         },
 
-        /**
-         * Select an inspector
-         */
         selectInspector(inspector: Inspector | null): void {
             this.selectedInspector = inspector;
         },
 
-        /**
-         * Clear search results and reset state
-         */
         clearSearch(): void {
             this.inspectors = [];
             this.totalItems = 0;
@@ -195,16 +149,10 @@ export const useInspectorStore = defineStore('inspector', {
             this.lastSearch = null;
         },
 
-        /**
-         * Clear search cache
-         */
         clearCache(): void {
             this.searchCache.clear();
         },
 
-        /**
-         * Update inspector in store after changes
-         */
         updateInspector(updatedInspector: Inspector): void {
             const index = this.inspectors.findIndex(i => i.id === updatedInspector.id);
             if (index !== -1) {
@@ -215,9 +163,6 @@ export const useInspectorStore = defineStore('inspector', {
             }
         },
 
-        /**
-         * Remove inspector from store
-         */
         removeInspector(inspectorId: number): void {
             this.inspectors = this.inspectors.filter(i => i.id !== inspectorId);
             if (this.selectedInspector?.id === inspectorId) {

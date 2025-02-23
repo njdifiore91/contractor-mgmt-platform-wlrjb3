@@ -4,18 +4,19 @@
  * @version 1.0.0
  */
 
-import { Equipment, EquipmentAssignment, EquipmentType } from '../models/equipment.model';
+import type { Equipment, EquipmentAssignment, EquipmentHistory, EquipmentStatus } from '../models/equipment.model';
+import { EquipmentType } from '../models/equipment.model';
 import api from '../utils/api.util';
 import retry from 'axios-retry';
 import rateLimit from 'axios-rate-limit';
 import createError from 'http-errors';
-import winston from 'winston';
 
 // API endpoint constants
+const API_VERSION = import.meta.env.VITE_APP_API_VERSION || 'v1';
 const API_ENDPOINTS = {
-    EQUIPMENT: '/api/v1/equipment',
-    ASSIGNMENTS: '/api/v1/equipment/assignments',
-    HISTORY: '/api/v1/equipment/history'
+    EQUIPMENT: `/${API_VERSION}/equipment`,
+    ASSIGNMENTS: `/${API_VERSION}/equipment/assignments`,
+    HISTORY: `/${API_VERSION}/equipment/history`
 } as const;
 
 // Retry configuration for failed requests
@@ -31,24 +32,61 @@ const RATE_LIMIT_CONFIG = {
     perMilliseconds: 1000
 };
 
+// Simple logger for browser environment
+const logger = {
+    info: (message: string, ...args: any[]) => {
+        console.log(`[INFO] ${message}`, ...args);
+    },
+    error: (message: string, ...args: any[]) => {
+        console.error(`[ERROR] ${message}`, ...args);
+    },
+    warn: (message: string, ...args: any[]) => {
+        console.warn(`[WARN] ${message}`, ...args);
+    }
+};
+
+// Helper function to convert IEquipment to Equipment
+function convertToEquipment(item: any): Equipment {
+    return {
+        id: Number(item.id),
+        serialNumber: item.serialNumber,
+        model: item.name, // Using name as model
+        type: EquipmentType.TestKit, // Default to TestKit for now
+        condition: item.condition,
+        status: item.status.toUpperCase() as EquipmentStatus,
+        isActive: item.status !== 'retired',
+        isAvailable: item.status === 'available',
+        purchaseDate: new Date(item.purchaseDate),
+        lastMaintenanceDate: item.lastMaintenanceDate ? new Date(item.lastMaintenanceDate) : null,
+        notes: item.notes
+    };
+}
+
+// Helper function to convert Equipment to IEquipment
+function convertToIEquipment(item: Equipment): any {
+    return {
+        id: String(item.id),
+        name: item.model,
+        type: item.type,
+        serialNumber: item.serialNumber,
+        status: item.status.toLowerCase(),
+        condition: item.condition,
+        purchaseDate: item.purchaseDate,
+        lastMaintenanceDate: item.lastMaintenanceDate,
+        assignedTo: null, // This would need to come from assignments
+        location: '', // This would need to be added to the Equipment type
+        notes: item.notes,
+        createdAt: new Date(),
+        updatedAt: new Date()
+    };
+}
+
 /**
  * Equipment API client class providing comprehensive equipment management operations
  * with error handling, validation, and logging capabilities.
  */
 export class EquipmentApiClient {
-    private logger: winston.Logger;
-
     constructor() {
-        // Initialize logger
-        this.logger = winston.createLogger({
-            level: 'info',
-            format: winston.format.json(),
-            transports: [
-                new winston.transports.Console(),
-                new winston.transports.File({ filename: 'equipment-api.log' })
-            ]
-        });
-
         // Configure retry and rate limiting
         retry(api, RETRY_CONFIG);
         rateLimit(api, RATE_LIMIT_CONFIG);
@@ -66,11 +104,11 @@ export class EquipmentApiClient {
         search?: string;
     }): Promise<Equipment[]> {
         try {
-            this.logger.info('Fetching equipment list', { params });
+            logger.info('Fetching equipment list', params);
             const response = await api.get<Equipment[]>(API_ENDPOINTS.EQUIPMENT, { params });
-            return response.data;
+            return response.data.map(convertToEquipment);
         } catch (error) {
-            this.logger.error('Failed to fetch equipment list', { error, params });
+            logger.error('Failed to fetch equipment list', { error, params });
             throw createError(500, 'Failed to fetch equipment list', { cause: error });
         }
     }
@@ -83,11 +121,11 @@ export class EquipmentApiClient {
      */
     async getEquipmentById(id: number): Promise<Equipment> {
         try {
-            this.logger.info('Fetching equipment details', { id });
+            logger.info('Fetching equipment details', { id });
             const response = await api.get<Equipment>(`${API_ENDPOINTS.EQUIPMENT}/${id}`);
-            return response.data;
+            return convertToEquipment(response.data);
         } catch (error) {
-            this.logger.error('Failed to fetch equipment details', { error, id });
+            logger.error('Failed to fetch equipment details', { error, id });
             throw createError(404, 'Equipment not found', { cause: error });
         }
     }
@@ -98,13 +136,14 @@ export class EquipmentApiClient {
      * @returns Promise resolving to created Equipment
      * @throws {ApiError} If the request fails or validation errors occur
      */
-    async createEquipment(equipment: Omit<Equipment, 'id'>): Promise<Equipment> {
+    async createEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
         try {
-            this.logger.info('Creating new equipment', { equipment });
-            const response = await api.post<Equipment>(API_ENDPOINTS.EQUIPMENT, equipment);
-            return response.data;
+            logger.info('Creating new equipment', { equipment });
+            const iequipment = convertToIEquipment(equipment as Equipment);
+            const response = await api.post<Equipment>(API_ENDPOINTS.EQUIPMENT, iequipment);
+            return convertToEquipment(response.data);
         } catch (error) {
-            this.logger.error('Failed to create equipment', { error, equipment });
+            logger.error('Failed to create equipment', { error, equipment });
             throw createError(400, 'Failed to create equipment', { cause: error });
         }
     }
@@ -118,11 +157,12 @@ export class EquipmentApiClient {
      */
     async updateEquipment(id: number, equipment: Partial<Equipment>): Promise<Equipment> {
         try {
-            this.logger.info('Updating equipment', { id, equipment });
-            const response = await api.put<Equipment>(`${API_ENDPOINTS.EQUIPMENT}/${id}`, equipment);
-            return response.data;
+            logger.info('Updating equipment', { id, equipment });
+            const iequipment = convertToIEquipment({ id, ...equipment } as Equipment);
+            const response = await api.put<Equipment>(`${API_ENDPOINTS.EQUIPMENT}/${id}`, iequipment);
+            return convertToEquipment(response.data);
         } catch (error) {
-            this.logger.error('Failed to update equipment', { error, id, equipment });
+            logger.error('Failed to update equipment', { error, id, equipment });
             throw createError(400, 'Failed to update equipment', { cause: error });
         }
     }
@@ -135,11 +175,11 @@ export class EquipmentApiClient {
      */
     async assignEquipment(assignment: Omit<EquipmentAssignment, 'id'>): Promise<EquipmentAssignment> {
         try {
-            this.logger.info('Assigning equipment', { assignment });
+            logger.info('Assigning equipment', { assignment });
             const response = await api.post<EquipmentAssignment>(API_ENDPOINTS.ASSIGNMENTS, assignment);
             return response.data;
         } catch (error) {
-            this.logger.error('Failed to assign equipment', { error, assignment });
+            logger.error('Failed to assign equipment', { error, assignment });
             throw createError(400, 'Failed to assign equipment', { cause: error });
         }
     }
@@ -156,14 +196,14 @@ export class EquipmentApiClient {
         returnDetails: { returnCondition: string; notes?: string }
     ): Promise<EquipmentAssignment> {
         try {
-            this.logger.info('Processing equipment return', { assignmentId, returnDetails });
+            logger.info('Processing equipment return', { assignmentId, returnDetails });
             const response = await api.put<EquipmentAssignment>(
                 `${API_ENDPOINTS.ASSIGNMENTS}/${assignmentId}/return`,
                 returnDetails
             );
             return response.data;
         } catch (error) {
-            this.logger.error('Failed to process equipment return', { error, assignmentId, returnDetails });
+            logger.error('Failed to process equipment return', { error, assignmentId, returnDetails });
             throw createError(400, 'Failed to process equipment return', { cause: error });
         }
     }
@@ -171,18 +211,18 @@ export class EquipmentApiClient {
     /**
      * Retrieves equipment assignment history
      * @param equipmentId Equipment identifier
-     * @returns Promise resolving to array of EquipmentAssignment records
+     * @returns Promise resolving to array of EquipmentHistory records
      * @throws {ApiError} If the request fails
      */
-    async getEquipmentHistory(equipmentId: number): Promise<EquipmentAssignment[]> {
+    async getEquipmentHistory(equipmentId: number): Promise<EquipmentHistory[]> {
         try {
-            this.logger.info('Fetching equipment history', { equipmentId });
-            const response = await api.get<EquipmentAssignment[]>(
+            logger.info('Fetching equipment history', { equipmentId });
+            const response = await api.get<EquipmentHistory[]>(
                 `${API_ENDPOINTS.HISTORY}/${equipmentId}`
             );
             return response.data;
         } catch (error) {
-            this.logger.error('Failed to fetch equipment history', { error, equipmentId });
+            logger.error('Failed to fetch equipment history', { error, equipmentId });
             throw createError(500, 'Failed to fetch equipment history', { cause: error });
         }
     }
@@ -191,3 +231,85 @@ export class EquipmentApiClient {
 // Export singleton instance
 export const equipmentApi = new EquipmentApiClient();
 export default equipmentApi;
+
+// Standalone functions using the same logger and error handling
+export async function getEquipmentList(): Promise<Equipment[]> {
+    try {
+        logger.info('Fetching equipment list');
+        // Debug log to see the full URL
+        const fullUrl = `${api.defaults.baseURL}${API_ENDPOINTS.EQUIPMENT}`;
+        logger.info('Full URL:', fullUrl);
+        
+        const response = await api.get(API_ENDPOINTS.EQUIPMENT);
+        return response.data.map(convertToEquipment);
+    } catch (error) {
+        logger.error('Failed to fetch equipment list', { error });
+        throw createError(500, 'Failed to fetch equipment list', { cause: error });
+    }
+}
+
+export async function getEquipmentById(id: number): Promise<Equipment> {
+    try {
+        logger.info('Fetching equipment details', { id });
+        const response = await api.get(`${API_ENDPOINTS.EQUIPMENT}/${id}`);
+        return convertToEquipment(response.data);
+    } catch (error) {
+        logger.error('Failed to fetch equipment details', { error, id });
+        throw createError(404, 'Equipment not found', { cause: error });
+    }
+}
+
+export async function createEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
+    try {
+        logger.info('Creating new equipment', { equipment });
+        const iequipment = convertToIEquipment(equipment as Equipment);
+        const response = await api.post(API_ENDPOINTS.EQUIPMENT, iequipment);
+        return convertToEquipment(response.data);
+    } catch (error) {
+        logger.error('Failed to create equipment', { error, equipment });
+        throw createError(400, 'Failed to create equipment', { cause: error });
+    }
+}
+
+export async function updateEquipment(id: number, updates: Partial<Equipment>): Promise<Equipment> {
+    try {
+        logger.info('Updating equipment', { id, updates });
+        const iequipment = convertToIEquipment({ id, ...updates } as Equipment);
+        const response = await api.put(`${API_ENDPOINTS.EQUIPMENT}/${id}`, iequipment);
+        return convertToEquipment(response.data);
+    } catch (error) {
+        logger.error('Failed to update equipment', { error, id, updates });
+        throw createError(400, 'Failed to update equipment', { cause: error });
+    }
+}
+
+export async function assignEquipment(equipmentId: number, inspectorId: number): Promise<void> {
+    try {
+        logger.info('Assigning equipment', { equipmentId, inspectorId });
+        await api.post(`${API_ENDPOINTS.ASSIGNMENTS}`, { equipmentId, inspectorId });
+    } catch (error) {
+        logger.error('Failed to assign equipment', { error, equipmentId, inspectorId });
+        throw createError(400, 'Failed to assign equipment', { cause: error });
+    }
+}
+
+export async function returnEquipment(assignmentId: number): Promise<void> {
+    try {
+        logger.info('Processing equipment return', { assignmentId });
+        await api.post(`${API_ENDPOINTS.ASSIGNMENTS}/${assignmentId}/return`);
+    } catch (error) {
+        logger.error('Failed to return equipment', { error, assignmentId });
+        throw createError(400, 'Failed to return equipment', { cause: error });
+    }
+}
+
+export async function getEquipmentHistory(equipmentId: number): Promise<EquipmentHistory[]> {
+    try {
+        logger.info('Fetching equipment history', { equipmentId });
+        const response = await api.get(`${API_ENDPOINTS.HISTORY}/${equipmentId}`);
+        return response.data;
+    } catch (error) {
+        logger.error('Failed to fetch equipment history', { error, equipmentId });
+        throw createError(500, 'Failed to fetch equipment history', { cause: error });
+    }
+}

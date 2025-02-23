@@ -6,9 +6,9 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue'; // ^3.3.0
-import { QNotification, useQuasar } from 'quasar'; // ^2.0.0
-import { useNotificationStore } from '../stores/notification.store';
-import { useNotification } from '../../composables/useNotification';
+import { Notify, useQuasar } from 'quasar'; // ^2.0.0
+import { useNotificationStore } from '@/stores/notification.store';
+import { useNotification } from '@/composables/useNotification';
 
 // Screen breakpoints for responsive positioning
 const SCREEN_BREAKPOINTS = {
@@ -144,6 +144,8 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
+@use "@/assets/styles/variables.scss" as vars;
+
 .app-notification {
   // Container is virtual, styles apply to Quasar notifications
   &-item {
@@ -172,7 +174,7 @@ export default defineComponent({
     }
 
     // Responsive adjustments
-    @media (max-width: $breakpoint-xs) {
+    @media (max-width: vars.$breakpoint-xs) {
       margin: 4px;
       max-width: 100%;
       border-radius: 0;

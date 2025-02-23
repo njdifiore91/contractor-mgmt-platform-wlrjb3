@@ -208,10 +208,10 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { useQuasar } from '@quasar/vue';
+import { useQuasar } from 'quasar';
 import { useCustomer } from '@/composables/useCustomer';
-import { useAuditLog } from '@company/audit-log';
-import { useSecurityValidation } from '@company/security-validation';
+import { useAuditLog } from '@/composables/useAuditLog';
+import { useSecurityValidation } from '@/composables/useSecurityValidation';
 import { ICustomer, IContact, IContract } from '@/models/customer.model';
 import { formatDate } from '@/utils/date.util';
 

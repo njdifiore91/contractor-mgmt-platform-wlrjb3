@@ -1,6 +1,9 @@
-import { createRouter, createWebHistory, RouteLocationNormalized, NavigationGuardNext } from 'vue-router'; // ^4.0.0
+import { createRouter, createWebHistory } from 'vue-router';
+import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router';
 import { auth_routes, default_routes, admin_routes } from './routes';
 import { useAuth } from '@/composables/useAuth';
+import { useAuthStore } from '@/stores/auth.store';
+import { UserRoleType } from '@/models/user.model';
 
 // Security monitoring constants
 const NAVIGATION_RATE_LIMIT = 10; // Max navigation attempts per minute
@@ -19,7 +22,8 @@ const setupAuthGuard = async (
   from: RouteLocationNormalized,
   next: NavigationGuardNext
 ): Promise<void> => {
-  const { isAuthenticated, checkAuthStatus, hasRole } = useAuth();
+  const auth = useAuth();
+  if (!auth) throw new Error('Auth composable not available');
 
   try {
     // Rate limiting check
@@ -34,40 +38,44 @@ const setupAuthGuard = async (
 
     navigationAttempts.push(new Date());
 
-    // Check if route requires authentication
+    // Initialize auth state if not already done
+    await auth.initializeAuth();
+
+    // For auth routes (like login), redirect to dashboard if already authenticated
+    if (to.path.startsWith('/auth') && auth.isAuthenticated.value) {
+      return next({ name: 'dashboard', replace: true });
+    }
+
+    // For protected routes, check authentication and role access
     if (to.meta.requiresAuth) {
-      // Verify authentication status
-      if (!isAuthenticated.value) {
+      const isValid = await auth.checkAuthStatus();
+      if (!isValid) {
         return next({
           path: '/auth/login',
           query: { redirect: to.fullPath }
         });
       }
 
-      // Validate session status
-      const sessionValid = await checkAuthStatus();
-      if (!sessionValid) {
-        throw new Error('Invalid session state');
-      }
-
       // Check role-based access
       const allowedRoles = to.meta.allowedRoles as string[];
       if (allowedRoles && allowedRoles.length > 0 && allowedRoles[0] !== '*') {
-        const hasAccess = allowedRoles.some(role => hasRole(role));
+        const authStore = useAuthStore();
+        const hasAccess = allowedRoles.some(role => 
+          authStore.hasRole(role as UserRoleType)
+        );
+        
         if (!hasAccess) {
-          throw new Error('Insufficient permissions');
+          console.warn('Access denied - insufficient permissions');
+          return next({ name: 'dashboard' });
         }
       }
     }
 
-    // Special handling for admin routes
-    if (to.meta.requiresAdmin && !hasRole('Admin')) {
-      return next({ path: '/dashboard' });
-    }
-
-    next();
-  } catch (error) {
+    // Allow navigation
+    return next();
+  } catch (error: unknown) {
     console.error('Navigation guard error:', error);
+    await auth.logout();
     return next({ 
       path: '/auth/login',
       query: { 
@@ -124,7 +132,7 @@ const router = createRouter({
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: () => import('@/views/NotFoundPage.vue'),
+      component: () => import('@/pages/error/NotFoundPage.vue'),
       meta: {
         title: 'Page Not Found',
         requiresAuth: false
@@ -139,7 +147,7 @@ const router = createRouter({
   }
 });
 
-// Register enhanced navigation guards
+// Register navigation guards
 router.beforeEach(setupAuthGuard);
 router.beforeEach(setupTitleGuard);
 router.onError(setupErrorBoundary);
@@ -149,11 +157,13 @@ let securityInterval: number;
 
 router.isReady().then(() => {
   securityInterval = window.setInterval(() => {
-    const { checkAuthStatus } = useAuth();
-    checkAuthStatus().catch(error => {
-      console.error('Security check failed:', error);
-      router.push('/auth/login');
-    });
+    const auth = useAuth();
+    if (auth) {
+      auth.checkAuthStatus().catch(error => {
+        console.error('Security check failed:', error);
+        router.push('/auth/login');
+      });
+    }
   }, SECURITY_CHECK_INTERVAL);
 });
 

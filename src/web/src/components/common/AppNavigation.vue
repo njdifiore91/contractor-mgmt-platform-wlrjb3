@@ -7,7 +7,7 @@
       :class="{ 'mobile-list': isMobileView }"
     >
       <QItem
-        v-for="item in navigationItems"
+        v-for="item in filteredNavigationItems"
         :key="item.route"
         clickable
         :active="isActiveRoute(item.route)"
@@ -35,6 +35,14 @@ import { QList, QItem, QIcon, QItemSection } from 'quasar'; // ^2.0.0
 import { useAuthStore } from '@/stores/auth.store';
 import { UserRoleType } from '@/models/user.model';
 
+interface Props {
+  layoutType?: 'default' | 'admin';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  layoutType: 'default'
+});
+
 // Security monitoring constants
 const NAVIGATION_RATE_LIMIT = 10; // Max navigation attempts per minute
 const NAVIGATION_WINDOW = 60 * 1000; // 1 minute window
@@ -48,8 +56,8 @@ const navigationAttempts = ref<Date[]>([]);
 const isMobileView = ref(false);
 const touchStartTime = ref<number>(0);
 
-// Role-based navigation hierarchy
-const navigationItems = computed(() => [
+// Default navigation items
+const defaultNavigationItems = [
   {
     label: 'Dashboard',
     icon: 'dashboard',
@@ -59,28 +67,55 @@ const navigationItems = computed(() => [
   {
     label: 'Customers',
     icon: 'business',
-    route: '/customers',
+    route: '/dashboard/customers',
     roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.CustomerService]
   },
   {
     label: 'Inspectors',
     icon: 'engineering',
-    route: '/inspectors',
+    route: '/dashboard/inspectors',
     roles: [UserRoleType.Admin, UserRoleType.Operations]
   },
   {
     label: 'Equipment',
     icon: 'inventory',
-    route: '/equipment',
+    route: '/dashboard/equipment',
     roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.Inspector]
-  },
+  }
+];
+
+// Admin navigation items
+const adminNavigationItems = [
   {
-    label: 'Admin',
+    label: 'Admin Home',
     icon: 'admin_panel_settings',
     route: '/admin',
     roles: [UserRoleType.Admin]
+  },
+  {
+    label: 'Users',
+    icon: 'people',
+    route: '/admin/users',
+    roles: [UserRoleType.Admin]
+  },
+  {
+    label: 'Contractors',
+    icon: 'business',
+    route: '/admin/contractors',
+    roles: [UserRoleType.Admin]
+  },
+  {
+    label: 'Settings',
+    icon: 'settings',
+    route: '/admin/settings',
+    roles: [UserRoleType.Admin]
   }
-]);
+];
+
+// Filtered navigation items based on layout type
+const filteredNavigationItems = computed(() => {
+  return props.layoutType === 'admin' ? adminNavigationItems : defaultNavigationItems;
+});
 
 // Responsive design computations
 const dynamicIconSize = computed(() => isMobileView.value ? 'sm' : 'md');
@@ -185,14 +220,21 @@ const emit = defineEmits<{
 
   .navigation-item {
     transition: background-color 0.2s ease;
+    border-radius: 8px;
+    margin: 4px 8px;
     
     &:hover {
-      background-color: rgba(0, 0, 0, 0.05);
+      background-color: rgba(var(--q-primary), 0.05);
     }
     
     &.q-item--active {
-      background-color: rgba(0, 0, 0, 0.1);
+      background-color: rgba(var(--q-primary), 0.1);
+      color: var(--q-primary);
       font-weight: 500;
+
+      .q-icon {
+        color: var(--q-primary);
+      }
     }
   }
 
@@ -205,6 +247,19 @@ const emit = defineEmits<{
   @media (min-width: $breakpoint-md) {
     .navigation-label {
       font-size: 16px;
+    }
+  }
+
+  // Dark mode support
+  :root[data-theme="dark"] & {
+    .navigation-item {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      
+      &.q-item--active {
+        background-color: rgba(var(--q-primary), 0.2);
+      }
     }
   }
 }

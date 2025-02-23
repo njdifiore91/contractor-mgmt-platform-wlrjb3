@@ -1,6 +1,6 @@
 <template>
   <QDrawer
-    v-model="isOpen"
+    :model-value="localIsOpen"
     bordered
     :class="[
       'app-sidebar',
@@ -10,6 +10,7 @@
     :behavior="isMobile ? 'mobile' : 'desktop'"
     :breakpoint="1024"
     :width="sidebarWidth"
+    show-if-above
     elevated
     aria-label="Main Navigation"
     role="navigation"
@@ -21,6 +22,7 @@
       visible
     >
       <AppNavigation
+        :layout-type="layoutType"
         :roles="userRoles"
         :is-authenticated="isAuthenticated"
         @navigation-changed="handleNavigationChange"
@@ -31,19 +33,30 @@
 </template>
 
 <script setup lang="ts">
-// Vue imports - v3.0.0
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-
-// Quasar imports - v2.0.0
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { QDrawer, QScrollArea, useQuasar } from 'quasar';
-
-// Internal imports
 import AppNavigation from './AppNavigation.vue';
 import { useAuthStore } from '@/stores/auth.store';
 
-// Constants for rate limiting and responsiveness
-const TOGGLE_RATE_LIMIT = 5; // Max toggles per second
-const TOGGLE_WINDOW = 1000; // 1 second window in milliseconds
+interface Props {
+  isOpen: boolean;
+  isElevated?: boolean;
+  layoutType?: 'default' | 'admin';
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  isElevated: false,
+  layoutType: 'default'
+});
+
+const emit = defineEmits<{
+  (e: 'update:isOpen', value: boolean): void;
+  (e: 'sidebarToggled', value: boolean): void;
+  (e: 'navigationChanged', route: string): void;
+  (e: 'roleChanged'): void;
+}>();
+
+// Constants for responsiveness
 const MOBILE_BREAKPOINT = 1024;
 const DEFAULT_WIDTH = 256;
 const MOBILE_WIDTH = 320;
@@ -51,11 +64,14 @@ const MOBILE_WIDTH = 320;
 // Component state
 const $q = useQuasar();
 const authStore = useAuthStore();
-const isOpen = ref(true);
-const isElevated = ref(false);
-const toggleAttempts = ref<number[]>([]);
 const touchStartX = ref(0);
 const touchEndX = ref(0);
+const localIsOpen = ref(props.isOpen);
+
+// Watch for prop changes
+watch(() => props.isOpen, (newValue) => {
+  localIsOpen.value = newValue;
+});
 
 // Computed properties
 const isMobile = computed(() => $q.screen.width < MOBILE_BREAKPOINT);
@@ -63,30 +79,16 @@ const sidebarWidth = computed(() => isMobile.value ? MOBILE_WIDTH : DEFAULT_WIDT
 const userRoles = computed(() => authStore.user?.userRoles.map(role => role.roleId) || []);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 
-// Rate limiting check
-const isToggleThrottled = (): boolean => {
-  const now = Date.now();
-  toggleAttempts.value = toggleAttempts.value.filter(
-    timestamp => now - timestamp < TOGGLE_WINDOW
-  );
-  return toggleAttempts.value.length >= TOGGLE_RATE_LIMIT;
-};
-
 // Event handlers
 const handleSidebarToggle = (value: boolean): void => {
-  if (isToggleThrottled()) {
-    console.warn('Sidebar toggle rate limit exceeded');
-    return;
-  }
-
-  toggleAttempts.value.push(Date.now());
-  isOpen.value = value;
+  localIsOpen.value = value;
+  emit('update:isOpen', value);
   emit('sidebarToggled', value);
 };
 
 const handleNavigationChange = (route: string): void => {
   if (isMobile.value) {
-    isOpen.value = false;
+    handleSidebarToggle(false);
   }
   emit('navigationChanged', route);
 };
@@ -105,13 +107,8 @@ const handleTouchMove = (event: TouchEvent): void => {
   const deltaX = touchEndX.value - touchStartX.value;
 
   if (Math.abs(deltaX) > 50) {
-    isOpen.value = deltaX > 0;
+    handleSidebarToggle(deltaX > 0);
   }
-};
-
-// Scroll and elevation handlers
-const handleScroll = (): void => {
-  isElevated.value = window.scrollY > 0;
 };
 
 // Lifecycle hooks
@@ -120,40 +117,40 @@ onMounted(() => {
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchmove', handleTouchMove);
   }
-  window.addEventListener('scroll', handleScroll);
 });
 
 onUnmounted(() => {
   document.removeEventListener('touchstart', handleTouchStart);
   document.removeEventListener('touchmove', handleTouchMove);
-  window.removeEventListener('scroll', handleScroll);
 });
-
-// Event emitter
-const emit = defineEmits<{
-  (event: 'sidebarToggled', value: boolean): void;
-  (event: 'navigationChanged', route: string): void;
-  (event: 'roleChanged'): void;
-}>();
 </script>
 
 <style lang="scss">
+:root {
+  --sidebar-default-width: 256px;
+  --sidebar-mobile-width: 320px;
+  --sidebar-z-index: 1000;
+  --sidebar-shadow-light: 0 2px 4px rgba(0, 0, 0, 0.12);
+  --sidebar-shadow-elevated: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --sidebar-shadow-dark: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --sidebar-shadow-dark-elevated: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
 .app-sidebar {
-  width: $DEFAULT_WIDTH;
+  width: var(--sidebar-default-width);
   min-height: 100vh;
-  background: var(--q-primary);
-  color: white;
+  background: var(--surface-ground);
   transition: all 0.3s ease-in-out;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  z-index: 1000;
+  box-shadow: var(--sidebar-shadow-light);
+  z-index: var(--sidebar-z-index);
 
   &--mobile {
     width: 100%;
-    max-width: $MOBILE_WIDTH;
+    max-width: var(--sidebar-mobile-width);
   }
 
   &--elevated {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--sidebar-shadow-elevated);
   }
 
   // Accessibility enhancements
@@ -179,14 +176,12 @@ const emit = defineEmits<{
 }
 
 // Dark mode adjustments
-.body--dark {
-  .app-sidebar {
-    background: var(--q-dark);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+:root[data-theme="dark"] .app-sidebar {
+  background: var(--surface-ground-dark);
+  box-shadow: var(--sidebar-shadow-dark);
 
-    &--elevated {
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-    }
+  &--elevated {
+    box-shadow: var(--sidebar-shadow-dark-elevated);
   }
 }
 </style>

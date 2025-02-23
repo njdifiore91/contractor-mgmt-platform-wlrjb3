@@ -4,17 +4,23 @@
  * @version 1.0.0
  */
 
-import axios, { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios'; // ^1.0.0
+import axios from 'axios'; // ^1.0.0
+import type { AxiosInstance, AxiosError, AxiosRequestConfig } from 'axios';
 import rateLimit from 'axios-rate-limit'; // ^1.3.0
-import { Notify } from '@quasar/app'; // ^2.0.0
-import { encrypt, decrypt, sign, verify } from '@security/utils'; // ^1.0.0
-import { AuthToken, AuthStatus, isTokenExpired } from '../models/auth.model';
+import { Notify } from 'quasar'; // ^2.0.0
+import { useEncryption } from '@/composables/useEncryption';
+import type { AuthToken } from '../models/auth.model';
+import { AuthStatus, isTokenExpired } from '../models/auth.model';
 
 // Environment configuration
-const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || '/api';
-const API_TIMEOUT = 30000;
-const MAX_RETRY_ATTEMPTS = 3;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_VERSION = import.meta.env.VITE_APP_API_VERSION || 'v1';
+const API_TIMEOUT = parseInt(import.meta.env.VITE_APP_API_TIMEOUT || '30000');
+const MAX_RETRY_ATTEMPTS = parseInt(import.meta.env.VITE_APP_API_RETRY_ATTEMPTS || '3');
 const RATE_LIMIT_PER_SECOND = 10;
+
+// Initialize encryption utilities
+const { encrypt, decrypt, sign, verify } = useEncryption();
 
 // Token storage in memory (not persisted)
 let currentAuthToken: AuthToken | null = null;
@@ -30,8 +36,21 @@ const createApiInstance = (): AxiosInstance => {
         timeout: API_TIMEOUT,
         headers: {
             'Content-Type': 'application/json',
-            'X-Client-Version': process.env.VUE_APP_VERSION
+            'X-Client-Version': import.meta.env.VITE_APP_VERSION || '1.0.0',
+            'X-API-Version': API_VERSION
         }
+    });
+
+    console.log('[API Config] Environment:', {
+        API_BASE_URL,
+        API_VERSION,
+        API_TIMEOUT,
+        MAX_RETRY_ATTEMPTS
+    });
+    console.log('[API Config] Base URL:', API_BASE_URL);
+    console.log('[API Config] Full config:', {
+        baseURL: API_BASE_URL,
+        timeout: API_TIMEOUT
     });
 
     // Apply rate limiting
@@ -44,6 +63,14 @@ const createApiInstance = (): AxiosInstance => {
     // Request interceptor for authentication
     rateLimitedInstance.interceptors.request.use(
         async (config) => {
+            const fullUrl = `${config.baseURL}${config.url}`;
+            console.log(`[API Debug] Making request to: ${fullUrl}`);
+            console.log(`[API Debug] Request config:`, {
+                method: config.method,
+                url: config.url,
+                baseURL: config.baseURL,
+                headers: config.headers
+            });
             if (currentAuthToken && isTokenExpired(currentAuthToken)) {
                 const newToken = await refreshAuthToken(currentAuthToken);
                 currentAuthToken = newToken;
@@ -53,11 +80,11 @@ const createApiInstance = (): AxiosInstance => {
                 config.headers.Authorization = `Bearer ${currentAuthToken.accessToken}`;
             }
 
-            // Sign request payload
-            if (config.data) {
-                config.headers['X-Request-Signature'] = sign(JSON.stringify(config.data));
-                config.data = encrypt(config.data);
-            }
+            // Skip encryption for now since backend doesn't support it
+            // if (config.data) {
+            //     config.headers['X-Request-Signature'] = sign(JSON.stringify(config.data));
+            //     config.data = encrypt(config.data);
+            // }
 
             return config;
         },
@@ -67,11 +94,11 @@ const createApiInstance = (): AxiosInstance => {
     // Response interceptor for error handling and decryption
     rateLimitedInstance.interceptors.response.use(
         async (response) => {
-            // Verify and decrypt response data
-            if (response.data) {
-                const decryptedData = decrypt(response.data);
-                response.data = decryptedData;
-            }
+            // Skip decryption since backend doesn't support it
+            // if (response.data) {
+            //     const decryptedData = decrypt(response.data);
+            //     response.data = decryptedData;
+            // }
             return response;
         },
         async (error: AxiosError) => {

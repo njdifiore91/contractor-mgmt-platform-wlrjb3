@@ -2,6 +2,8 @@
 // @quasar/extras v2.0.0
 // sass v1.32.0
 
+@use './variables.scss' as vars;
+
 // Material Design Color System
 // Primary colors with WCAG AA compliance
 $primary: rgb(33, 150, 243);          // Blue 500 - Main brand color
@@ -153,3 +155,93 @@ $opacity-hover: 0.04;
 $opacity-focus: 0.12;
 $opacity-selected: 0.08;
 $opacity-activated: 0.12;
+
+// Import our custom variables and map them to Quasar variables
+$primary   : vars.$primary !default;
+$secondary : vars.$secondary !default;
+$accent    : vars.$accent !default;
+
+$dark      : vars.$dark !default;
+$dark-page : vars.$dark-page !default;
+
+$positive  : vars.$positive !default;
+$negative  : vars.$negative !default;
+$info      : vars.$info !default;
+$warning   : vars.$warning !default;
+
+// Typography
+$typography-font-family : vars.$typography-font-family !default;
+$body-font-size        : vars.$body-font-size !default;
+$body-line-height      : vars.$body-line-height !default;
+
+// Border radius
+$generic-border-radius : vars.$generic-border-radius !default;
+$button-border-radius  : vars.$button-border-radius !default;
+
+// Spacing
+$space-base : vars.$space-base !default;
+$space-x-xs : vars.$space-xs !default;
+$space-xs   : vars.$space-sm !default;
+$space-sm   : vars.$space-md !default;
+$space-md   : vars.$space-lg !default;
+$space-lg   : vars.$space-xl !default;
+$space-xl   : vars.$space-xl * 2 !default;
+
+// Custom spacing variables
+$space-x-base : $space-base;
+$space-y-base : $space-base;
+
+$space-none : (
+  "x": 0,
+  "y": 0
+);
+
+$space-xs : (
+  "x": ($space-x-base * .25),
+  "y": ($space-y-base * .25)
+);
+
+$space-sm : (
+  "x": ($space-x-base * .5),
+  "y": ($space-y-base * .5)
+);
+
+$space-md : (
+  "x": $space-x-base,
+  "y": $space-y-base
+);
+
+$space-lg : (
+  "x": ($space-x-base * 1.5),
+  "y": ($space-y-base * 1.5)
+);
+
+$space-xl : (
+  "x": ($space-x-base * 3),
+  "y": ($space-y-base * 3)
+);
+
+// Margins
+$margins: (
+  "none": $space-none,
+  "xs": $space-xs,
+  "sm": $space-sm,
+  "md": $space-md,
+  "lg": $space-lg,
+  "xl": $space-xl
+);
+
+// Paddings
+$paddings: (
+  "none": $space-none,
+  "xs": $space-xs,
+  "sm": $space-sm,
+  "md": $space-md,
+  "lg": $space-lg,
+  "xl": $space-xl
+);
+
+// Typography
+$typography-font-family : 'Roboto', '-apple-system', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+$body-font-size        : 14px;
+$body-line-height      : 1.5;

@@ -5,9 +5,21 @@
  */
 
 /**
+ * User model type definitions
+ */
+
+/**
  * Represents a user in the system with full Azure AD B2C integration support
  * and audit tracking capabilities.
  */
+export type UserRole = {
+    id: number;
+    userId: number;
+    roleId: number;
+    assignedAt: Date;
+    revokedAt: Date | null;
+};
+
 export interface IUser {
     /** Unique identifier for the user */
     id: number;
@@ -31,7 +43,7 @@ export interface IUser {
     azureAdB2CId: string;
     
     /** Collection of roles assigned to the user */
-    userRoles: IUserRole[];
+    userRoles: UserRole[];
     
     /** Timestamp of user account creation */
     createdAt: Date;
@@ -88,19 +100,57 @@ export interface IUserRole {
 }
 
 /**
- * Enumeration of available user role types in the system.
- * Aligns with the authorization matrix defined in the technical specifications.
+ * User role types
  */
 export enum UserRoleType {
-    /** Full system access with user and configuration management capabilities */
     Admin = 'Admin',
-    
-    /** Access to manage inspectors, equipment, and view customer data */
     Operations = 'Operations',
-    
-    /** Limited access to self-management and assigned equipment */
     Inspector = 'Inspector',
-    
-    /** View-only access to customer data and equipment information */
-    CustomerService = 'CustomerService'
+    CustomerService = 'CustomerService',
+    Any = '*'
+}
+
+/**
+ * Helper function to check if a user has a specific role
+ */
+export function hasRole(user: IUser, role: UserRoleType): boolean {
+    if (role === UserRoleType.Any) return true;
+    const roleId = getRoleId(role);
+    return user.userRoles.some(ur => !ur.revokedAt && ur.roleId === roleId);
+}
+
+/**
+ * Helper function to get role ID from role type
+ */
+export function getRoleId(role: UserRoleType): number {
+    switch (role) {
+        case UserRoleType.Admin:
+            return 1;
+        case UserRoleType.Operations:
+            return 2;
+        case UserRoleType.Inspector:
+            return 3;
+        case UserRoleType.CustomerService:
+            return 4;
+        default:
+            return 0;
+    }
+}
+
+/**
+ * Helper function to get role type from role ID
+ */
+export function getRoleType(roleId: number): UserRoleType {
+    switch (roleId) {
+        case 1:
+            return UserRoleType.Admin;
+        case 2:
+            return UserRoleType.Operations;
+        case 3:
+            return UserRoleType.Inspector;
+        case 4:
+            return UserRoleType.CustomerService;
+        default:
+            return UserRoleType.Any;
+    }
 }

@@ -71,13 +71,12 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
-import { QPage, QBreadcrumbs, QBreadcrumbsEl, QSpinner } from 'quasar';
 import { useRateLimiter } from '@vueuse/core';
-import { useSecurityMonitor } from '@security/monitor';
+import { useSecurityMonitor } from '@/composables/useSecurityMonitor';
 import { useValidation } from '@vuelidate/core';
 import DefaultLayout from '@/layouts/DefaultLayout.vue';
 import UserProfile from '@/components/auth/UserProfile.vue';
-import { IUser } from '@/models/user.model';
+import type { IUser } from '@/models/user.model';
 
 // Security monitoring constants
 const PROFILE_UPDATE_LIMIT = 5; // Max updates per minute
@@ -88,11 +87,7 @@ export default defineComponent({
 
   components: {
     DefaultLayout,
-    UserProfile,
-    QPage,
-    QBreadcrumbs,
-    QBreadcrumbsEl,
-    QSpinner
+    UserProfile
   },
 
   setup() {

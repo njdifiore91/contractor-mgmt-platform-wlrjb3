@@ -4,144 +4,77 @@
  * @version 1.0.0
  */
 
-import { IUser } from './user.model';
+import type { IUser } from './user.model';
 
 /**
- * Interface representing login credentials for Azure AD B2C authentication.
- * Supports both standard and MFA-enabled login flows.
+ * Authentication status enum
  */
-export interface LoginCredentials {
-    /** User's email address for authentication */
-    email: string;
-    
-    /** User's password (only used for initial auth, not stored) */
-    password: string;
-    
-    /** Azure AD B2C client identifier */
-    clientId: string;
-    
-    /** Flag to enable persistent session */
-    rememberMe: boolean;
-}
-
-/**
- * Interface representing JWT authentication tokens from Azure AD B2C.
- * Includes comprehensive token metadata and expiration tracking.
- */
-export interface AuthToken {
-    /** JWT access token for API authorization */
-    accessToken: string;
-    
-    /** Refresh token for obtaining new access tokens */
-    refreshToken: string;
-    
-    /** ID token containing user claims */
-    idToken: string;
-    
-    /** Token type (typically 'Bearer') */
-    tokenType: string;
-    
-    /** Array of granted OAuth scopes */
-    scope: string[];
-    
-    /** Token lifetime in seconds */
-    expiresIn: number;
-    
-    /** Calculated absolute expiration timestamp */
-    expiresAt: Date;
-}
-
-/**
- * Interface for tracking user session state and activity.
- * Supports comprehensive session management and security tracking.
- */
-export interface UserSession {
-    /** Unique session identifier */
-    sessionId: string;
-    
-    /** Reference to authenticated user ID */
-    userId: number;
-    
-    /** Flag indicating active authentication state */
-    isAuthenticated: boolean;
-    
-    /** Array of user's active roles */
-    roles: string[];
-    
-    /** Timestamp of last session activity */
-    lastActivityAt: Date;
-    
-    /** Device information for security tracking */
-    deviceInfo: DeviceInfo;
-    
-    /** Refresh token expiration timestamp */
-    refreshTokenExpiry: Date;
-}
-
-/**
- * Interface for tracking device-specific session information.
- * Enhances security monitoring and session management.
- */
-export interface DeviceInfo {
-    /** Unique device identifier */
-    deviceId: string;
-    
-    /** Browser/client user agent string */
-    userAgent: string;
-    
-    /** Client IP address */
-    ipAddress: string;
-}
-
-/**
- * Enumeration of possible authentication states.
- * Supports granular tracking of authentication flow status.
- */
-export enum AuthStatus {
-    /** User is fully authenticated */
-    AUTHENTICATED = 'AUTHENTICATED',
-    
-    /** No active authentication */
+export const enum AuthStatus {
     UNAUTHENTICATED = 'UNAUTHENTICATED',
-    
-    /** Authentication in progress */
     PENDING = 'PENDING',
-    
-    /** Token refresh in progress */
-    REFRESHING = 'REFRESHING',
-    
-    /** Multi-factor authentication required */
+    AUTHENTICATED = 'AUTHENTICATED',
     MFA_REQUIRED = 'MFA_REQUIRED',
-    
-    /** Session has expired */
-    SESSION_EXPIRED = 'SESSION_EXPIRED',
-    
-    /** Authentication error occurred */
+    REFRESHING = 'REFRESHING',
     ERROR = 'ERROR'
 }
 
 /**
- * Type guard to check if a token is expired
- * @param token The authentication token to check
- * @returns boolean indicating if the token is expired
+ * Login credentials type
  */
-export function isTokenExpired(token: AuthToken): boolean {
-    return token.expiresAt < new Date();
-}
+export type LoginCredentials = {
+    email: string;
+    password: string;
+    rememberMe?: boolean;
+};
 
 /**
- * Type guard to check if a session is valid
- * @param session The user session to validate
- * @returns boolean indicating if the session is valid
+ * Authentication token type
  */
-export function isValidSession(session: UserSession): boolean {
-    const sessionTimeout = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-    const timeSinceLastActivity = Date.now() - session.lastActivityAt.getTime();
-    return session.isAuthenticated && timeSinceLastActivity < sessionTimeout;
-}
+export type AuthToken = {
+    accessToken: string;
+    refreshToken: string;
+    idToken: string;
+    tokenType: string;
+    scope: string[];
+    expiresIn: number;
+    expiresAt: Date;
+};
 
 /**
- * Type representing the possible authentication errors
+ * MFA challenge type
+ */
+export type MfaChallenge = {
+    challengeId: string;
+    method: 'SMS' | 'EMAIL' | 'AUTHENTICATOR';
+    destination?: string;
+    expiresAt: Date;
+};
+
+/**
+ * Device info type
+ */
+export type DeviceInfo = {
+    deviceId: string;
+    userAgent: string;
+    ipAddress: string;
+};
+
+/**
+ * User session type
+ */
+export type UserSession = {
+    sessionId: string;
+    userId: number;
+    isAuthenticated: boolean;
+    roles: string[];
+    lastActivityAt: Date;
+    deviceInfo: DeviceInfo;
+    refreshTokenExpiry: Date;
+    user: IUser;
+};
+
+/**
+ * Authentication error type
  */
 export type AuthError = {
     code: string;
@@ -150,18 +83,35 @@ export type AuthError = {
 };
 
 /**
- * Interface for MFA challenge response
+ * Helper function to check if a token is expired
  */
-export interface MfaChallenge {
-    challengeType: 'sms' | 'email' | 'authenticator';
-    challengeId: string;
-    expiresAt: Date;
+export function isTokenExpired(token: AuthToken): boolean {
+    return new Date() >= token.expiresAt;
 }
 
 /**
- * Interface for MFA verification request
+ * Helper function to check if a session is valid
  */
-export interface MfaVerification {
+export function isValidSession(session: UserSession): boolean {
+    return session.isAuthenticated && 
+           new Date() < session.refreshTokenExpiry &&
+           session.lastActivityAt != null;
+}
+
+/**
+ * Helper function to validate login credentials
+ */
+export function validateCredentials(credentials: LoginCredentials): boolean {
+    return !!(credentials.email && 
+             credentials.email.includes('@') && 
+             credentials.password && 
+             credentials.password.length >= 8);
+}
+
+/**
+ * MFA verification type
+ */
+export type MfaVerification = {
     challengeId: string;
     verificationCode: string;
-}
+};

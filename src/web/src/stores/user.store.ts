@@ -7,10 +7,10 @@
 import { defineStore } from 'pinia'; // ^2.1.0
 import { storeToRefs } from 'pinia'; // ^2.1.0
 import { debounce } from 'lodash'; // ^4.17.21
-import { UserApiService } from '@api/services'; // ^1.0.0
-import { useEncryptionService } from '@security/encryption'; // ^1.0.0
-import { IUser } from '../models/user.model';
+import { useEncryption } from '@/composables/useEncryption';
+import type { IUser } from '@/models/user.model';
 import { useNotificationStore } from './notification.store';
+import { api } from '@/utils/api.util';
 
 // Constants
 const DEFAULT_PAGE_SIZE = 20;
@@ -70,11 +70,11 @@ export const useUserStore = defineStore('user', {
      * Returns users with decrypted PII data for display
      */
     decryptedUsers(): IUser[] {
-      const encryptionService = useEncryptionService();
+      const { decrypt } = useEncryption();
       return this.users.map(user => ({
         ...user,
-        email: encryptionService.decryptPII(user.email),
-        phoneNumber: user.phoneNumber ? encryptionService.decryptPII(user.phoneNumber) : null
+        email: decrypt(user.email),
+        phoneNumber: user.phoneNumber ? decrypt(user.phoneNumber) : null
       }));
     },
 
@@ -109,9 +109,9 @@ export const useUserStore = defineStore('user', {
           return;
         }
 
-        const response = await UserApiService.getUsers(this.searchParams);
-        this.users = response.data;
-        this.totalCount = response.totalCount;
+        const response = await api.get('/users', { params: this.searchParams });
+        this.users = response.data.users;
+        this.totalCount = response.data.totalCount;
 
         // Update cache
         this.cache[cacheKey] = {
@@ -131,8 +131,8 @@ export const useUserStore = defineStore('user', {
     async fetchUserById(id: number): Promise<void> {
       try {
         this.loading = true;
-        const response = await UserApiService.getUserById(id);
-        this.selectedUser = response;
+        const response = await api.get(`/users/${id}`);
+        this.selectedUser = response.data;
       } catch (error) {
         this.handleError(`Error fetching user ${id}`, error);
       } finally {
@@ -146,16 +146,16 @@ export const useUserStore = defineStore('user', {
     async createUser(userData: Partial<IUser>): Promise<void> {
       try {
         this.loading = true;
-        const encryptionService = useEncryptionService();
+        const { encrypt } = useEncryption();
         
         const encryptedData = {
           ...userData,
-          email: encryptionService.encryptPII(userData.email!),
-          phoneNumber: userData.phoneNumber ? encryptionService.encryptPII(userData.phoneNumber) : null
+          email: encrypt(userData.email!),
+          phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber) : null
         };
 
-        const newUser = await UserApiService.createUser(encryptedData);
-        this.users.unshift(newUser);
+        const response = await api.post('/users', encryptedData);
+        this.users.unshift(response.data);
         this.invalidateCache();
         useNotificationStore().success('User created successfully');
       } catch (error) {
@@ -170,7 +170,7 @@ export const useUserStore = defineStore('user', {
      */
     async updateUser(id: number, updates: Partial<IUser>): Promise<void> {
       try {
-        const encryptionService = useEncryptionService();
+        const { encrypt } = useEncryption();
         const userIndex = this.users.findIndex(u => u.id === id);
         
         if (userIndex === -1) {
@@ -186,11 +186,11 @@ export const useUserStore = defineStore('user', {
         // Encrypt PII data
         const encryptedUpdates = {
           ...updates,
-          email: updates.email ? encryptionService.encryptPII(updates.email) : undefined,
-          phoneNumber: updates.phoneNumber ? encryptionService.encryptPII(updates.phoneNumber) : undefined
+          email: updates.email ? encrypt(updates.email) : undefined,
+          phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined
         };
 
-        await UserApiService.updateUser(id, encryptedUpdates);
+        await api.put(`/users/${id}`, encryptedUpdates);
         this.pendingUpdates.delete(id);
         this.invalidateCache();
         useNotificationStore().success('User updated successfully');
@@ -249,14 +249,6 @@ export const useUserStore = defineStore('user', {
       this.totalCount = 0;
       this.cache = {};
       this.pendingUpdates.clear();
-      this.searchParams = {
-        pageNumber: 1,
-        pageSize: DEFAULT_PAGE_SIZE,
-        searchTerm: '',
-        isActive: true,
-        sortBy: 'lastName',
-        sortOrder: 'asc'
-      };
     }
   }
 });

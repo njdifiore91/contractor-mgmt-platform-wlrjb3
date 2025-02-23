@@ -1,47 +1,33 @@
 <template>
-  <q-page class="login-page" role="main" aria-labelledby="login-title">
-    <!-- Security monitoring overlay (hidden) -->
-    <div class="security-overlay" aria-hidden="true"></div>
+  <div class="login-page">
+    <!-- Loading state -->
+    <loading-spinner
+      v-if="isLoading"
+      size="large"
+      color="primary"
+      aria-label="Loading authentication..."
+    />
 
-    <!-- Main login container -->
-    <div class="form-container">
-      <!-- Accessibility announcement for screen readers -->
-      <div 
-        role="status" 
-        aria-live="polite" 
-        class="sr-only"
-      >
-        {{ error }}
-      </div>
-
-      <!-- Loading state -->
-      <loading-spinner
-        v-if="isLoading"
-        size="large"
-        color="primary"
-        :aria-label="$t('auth.loading')"
-      />
-
-      <!-- Login form -->
+    <!-- Login form -->
+    <div v-else>
       <login-form
-        v-else
         @submit="handleAuthSuccess"
         @error="handleAuthError"
       />
-
-      <!-- Error display -->
-      <q-banner
-        v-if="error"
-        class="error-banner q-mt-md"
-        type="negative"
-        rounded
-        dense
-        role="alert"
-      >
-        {{ error }}
-      </q-banner>
     </div>
-  </q-page>
+
+    <!-- Error display -->
+    <q-banner
+      v-if="error"
+      class="error-banner q-mt-md"
+      type="negative"
+      rounded
+      dense
+      role="alert"
+    >
+      {{ error }}
+    </q-banner>
+  </div>
 </template>
 
 <script lang="ts">
@@ -76,24 +62,29 @@ export default defineComponent({
     let securityMonitorInterval: number | null = null;
 
     onMounted(async () => {
-      // Initialize authentication state
-      await initializeAuth();
+      try {
+        // Initialize authentication state
+        await initializeAuth();
 
-      // Redirect if already authenticated
-      if (isAuthenticated.value) {
-        router.push('/dashboard');
-        return;
-      }
-
-      // Setup security monitoring
-      securityMonitorInterval = window.setInterval(() => {
-        if (securityStatus.value.isLocked) {
-          handleAuthError(new Error('Security violation detected'));
+        // Redirect if already authenticated
+        if (isAuthenticated.value) {
+          await router.replace('/dashboard');
+          return;
         }
-      }, 30000);
 
-      // Announce page load to screen readers
-      announcePageLoad();
+        // Setup security monitoring
+        securityMonitorInterval = window.setInterval(() => {
+          if (securityStatus.value.isLocked) {
+            handleAuthError(new Error('Security violation detected'));
+          }
+        }, 30000);
+
+        // Announce page load to screen readers
+        announcePageLoad();
+      } catch (error) {
+        console.error('Error during login page initialization:', error);
+        handleAuthError(error as Error);
+      }
     });
 
     onUnmounted(() => {
@@ -171,61 +162,9 @@ export default defineComponent({
 
 <style lang="scss" scoped>
 .login-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--primary);
-  padding: map-get(responsive-spacing(padding, $space-base), md);
-  position: relative;
-
-  .form-container {
-    max-width: 400px;
-    width: 100%;
-    background: white;
-    border-radius: $border-radius-lg;
-    padding: map-get(responsive-spacing(padding, $space-base), lg);
-    box-shadow: $elevation-3;
-    position: relative;
-    z-index: 1;
-
-    @media (max-width: $breakpoint-xs) {
-      padding: map-get(responsive-spacing(padding, $space-base), md);
-      margin: map-get(responsive-spacing(margin, $space-base), sm);
-    }
-
-    @media (min-width: $breakpoint-sm) {
-      max-width: 450px;
-      margin: map-get(responsive-spacing(margin, $space-base), md);
-    }
-  }
-
-  .security-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: transparent;
-    z-index: 0;
-  }
-
   .error-banner {
-    margin-top: map-get(responsive-spacing(margin, $space-base), md);
-    border-radius: $border-radius-base;
-  }
-
-  // Screen reader only class
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    margin-top: 1rem;
+    border-radius: 8px;
   }
 }
 </style>

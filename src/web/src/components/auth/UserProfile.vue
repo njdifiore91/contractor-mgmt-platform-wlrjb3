@@ -1,341 +1,237 @@
 <template>
-  <q-card class="user-profile-card" flat bordered>
-    <!-- Profile Header Section -->
-    <q-card-section class="bg-primary text-white">
-      <div class="row items-center justify-between">
-        <div class="col-auto">
-          <div class="text-h6">{{ $t('profile.title') }}</div>
-          <div class="text-subtitle2">
-            {{ userData?.firstName }} {{ userData?.lastName }}
+  <div class="user-profile">
+    <q-card flat bordered>
+      <q-card-section class="bg-primary text-white">
+        <div class="row items-center justify-between">
+          <div class="col-auto">
+            <div class="text-h6">User Profile</div>
+            <div v-if="userData" class="text-subtitle2">
+              {{ userData.firstName }} {{ userData.lastName }}
+            </div>
+          </div>
+          <div class="col-auto">
+            <q-chip
+              :color="securityContext.isValid ? 'positive' : 'negative'"
+              text-color="white"
+              icon="security"
+            >
+              {{ securityContext.isValid ? 'Secure' : 'Session Invalid' }}
+            </q-chip>
           </div>
         </div>
-        <div class="col-auto">
-          <q-chip
-            :color="securityContext.isValid ? 'positive' : 'negative'"
-            text-color="white"
-            icon="security"
-          >
-            {{ securityContext.isValid ? $t('profile.secure') : $t('profile.insecure') }}
-          </q-chip>
+      </q-card-section>
+
+      <q-card-section class="bg-grey-2">
+        <div class="text-caption">
+          Last Login: {{ userData?.lastLoginAt ? new Date(userData.lastLoginAt).toLocaleString() : 'Never' }}
         </div>
-      </div>
-    </q-card-section>
+      </q-card-section>
 
-    <!-- Last Login Information -->
-    <q-card-section class="bg-grey-2">
-      <div class="text-caption">
-        {{ $t('profile.lastLogin') }}: 
-        {{ userData?.lastLoginAt ? new Date(userData.lastLoginAt).toLocaleString() : $t('profile.never') }}
-      </div>
-    </q-card-section>
-
-    <!-- Profile Form -->
-    <q-card-section>
-      <q-form
-        ref="profileForm"
-        @submit="handleUpdateProfile"
-        class="q-gutter-md"
-      >
-        <!-- First Name -->
-        <q-input
-          v-model="formData.firstName"
-          :label="$t('profile.firstName')"
-          :rules="[
-            val => !!val || $t('validation.required'),
-            val => val.length >= 2 || $t('validation.minLength', { length: 2 })
-          ]"
-          outlined
-          :disable="isLoading"
-          :error="!!error"
-        />
-
-        <!-- Last Name -->
-        <q-input
-          v-model="formData.lastName"
-          :label="$t('profile.lastName')"
-          :rules="[
-            val => !!val || $t('validation.required'),
-            val => val.length >= 2 || $t('validation.minLength', { length: 2 })
-          ]"
-          outlined
-          :disable="isLoading"
-          :error="!!error"
-        />
-
-        <!-- Email (Read-only) -->
-        <q-input
-          v-model="formData.email"
-          :label="$t('profile.email')"
-          type="email"
-          outlined
-          readonly
-          :disable="true"
-        >
-          <template v-slot:append>
-            <q-icon name="verified" color="primary" />
-          </template>
-        </q-input>
-
-        <!-- Phone Number -->
-        <q-input
-          v-model="formData.phoneNumber"
-          :label="$t('profile.phoneNumber')"
-          :rules="[
-            val => !val || /^\+?[\d\s-()]+$/.test(val) || $t('validation.phoneFormat')
-          ]"
-          outlined
-          :disable="isLoading"
-          :error="!!error"
-          mask="(###) ###-####"
-        />
-
-        <!-- Role Information -->
-        <div class="text-subtitle2 q-mb-sm">{{ $t('profile.roles') }}</div>
-        <div class="q-pa-sm bg-grey-2 rounded-borders">
-          <q-chip
-            v-for="role in userData?.userRoles"
-            :key="role.id"
-            color="primary"
-            text-color="white"
-            size="sm"
-            class="q-ma-xs"
-          >
-            {{ role.name }}
-          </q-chip>
-        </div>
-
-        <!-- Security Preferences -->
-        <q-expansion-item
-          group="security"
-          icon="security"
-          :label="$t('profile.security.title')"
-          header-class="text-primary"
-        >
-          <q-card>
-            <q-card-section>
-              <q-toggle
-                v-model="securityPreferences.mfaEnabled"
-                :label="$t('profile.security.mfa')"
-                color="primary"
-              />
-              <q-toggle
-                v-model="securityPreferences.emailNotifications"
-                :label="$t('profile.security.emailNotifications')"
-                color="primary"
-              />
-            </q-card-section>
-          </q-card>
-        </q-expansion-item>
-
-        <!-- Action Buttons -->
-        <div class="row justify-end q-gutter-sm q-mt-md">
-          <q-btn
-            :label="$t('common.cancel')"
-            flat
-            color="grey"
+      <q-card-section>
+        <q-form @submit.prevent="handleUpdateProfile" class="q-gutter-md">
+          <q-input
+            v-model="formData.firstName"
+            label="First Name"
+            outlined
             :disable="isLoading"
-            @click="resetForm"
           />
-          <q-btn
-            type="submit"
-            :label="$t('common.save')"
-            color="primary"
-            :loading="isLoading"
+
+          <q-input
+            v-model="formData.lastName"
+            label="Last Name"
+            outlined
+            :disable="isLoading"
+          />
+
+          <q-input
+            v-model="formData.email"
+            label="Email"
+            type="email"
+            outlined
+            disable
           >
-            <template v-slot:loading>
-              <q-spinner-dots />
+            <template #append>
+              <q-icon name="verified" color="primary" />
             </template>
-          </q-btn>
-          <q-btn
-            :label="$t('common.logout')"
-            color="negative"
-            flat
-            :disable="isLoading"
-            @click="handleLogout"
-          />
-        </div>
-      </q-form>
-    </q-card-section>
+          </q-input>
 
-    <!-- Error Display -->
-    <q-card-section v-if="error" class="bg-negative text-white">
-      <div class="row items-center">
-        <q-icon name="error" class="q-mr-sm" />
-        <div>{{ error }}</div>
-      </div>
-    </q-card-section>
-  </q-card>
+          <q-input
+            v-model="formData.phoneNumber"
+            label="Phone Number"
+            outlined
+            :disable="isLoading"
+            mask="(###) ###-####"
+          />
+
+          <div v-if="userData?.userRoles?.length" class="q-mb-md">
+            <div class="text-subtitle2 q-mb-sm">Roles</div>
+            <div class="q-pa-sm bg-grey-2 rounded-borders">
+              <q-chip
+                v-for="role in userData.userRoles"
+                :key="role.id"
+                color="primary"
+                text-color="white"
+                size="sm"
+                class="q-ma-xs"
+              >
+                {{ role.name }}
+              </q-chip>
+            </div>
+          </div>
+
+          <div class="row justify-end q-gutter-sm">
+            <q-btn
+              label="Cancel"
+              flat
+              color="grey"
+              :disable="isLoading"
+              @click="resetForm"
+            />
+            <q-btn
+              type="submit"
+              label="Save"
+              color="primary"
+              :loading="isLoading"
+            />
+            <q-btn
+              label="Logout"
+              color="negative"
+              flat
+              :disable="isLoading"
+              @click="handleLogout"
+            />
+          </div>
+        </q-form>
+      </q-card-section>
+
+      <q-card-section v-if="error" class="bg-negative text-white">
+        <div class="row items-center">
+          <q-icon name="error" class="q-mr-sm" />
+          <div>{{ error }}</div>
+        </div>
+      </q-card-section>
+    </q-card>
+  </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, computed, onMounted } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { QForm } from 'quasar';
-import { IUser } from '@/models/user.model';
+<script setup lang="ts">
+import { ref, onMounted, watch } from 'vue';
+import type { IUser } from '@/models/user.model';
 import { useAuth } from '@/composables/useAuth';
 import { useUser } from '@/composables/useUser';
 import { useNotification } from '@/composables/useNotification';
 
-export default defineComponent({
-  name: 'UserProfile',
+interface SecurityContext {
+  isValid: boolean;
+  lastActivity?: Date;
+  mfaEnabled?: boolean;
+}
 
-  setup() {
-    const { t } = useI18n();
-    const { isAuthenticated, logout, validateSession } = useAuth();
-    const { getUserById, updateUser, validateUserData } = useUser();
-    const { showSuccess, showError } = useNotification();
+interface Props {
+  userData?: IUser | null;
+  securityContext: SecurityContext;
+  isLoading?: boolean;
+}
 
-    // Reactive state
-    const profileForm = ref<QForm | null>(null);
-    const userData = ref<IUser | null>(null);
-    const isLoading = ref(false);
-    const error = ref<string | null>(null);
+const props = withDefaults(defineProps<Props>(), {
+  userData: null,
+  securityContext: () => ({
+    isValid: false
+  }),
+  isLoading: false
+});
 
-    // Form data with security preferences
-    const formData = ref({
-      firstName: '',
-      lastName: '',
-      email: '',
-      phoneNumber: ''
+const emit = defineEmits<{
+  (e: 'update:profile', value: IUser): void;
+  (e: 'security-event', value: { type: string }): void;
+}>();
+
+const { isAuthenticated, logout } = useAuth();
+const { getUserById, updateUser, validateUserData } = useUser();
+const { showSuccess, showError } = useNotification();
+
+const error = ref<string | null>(null);
+const formData = ref({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phoneNumber: ''
+});
+
+watch(() => props.userData, (newUserData) => {
+  if (newUserData) {
+    formData.value = {
+      firstName: newUserData.firstName || '',
+      lastName: newUserData.lastName || '',
+      email: newUserData.email || '',
+      phoneNumber: newUserData.phoneNumber || ''
+    };
+  }
+}, { immediate: true });
+
+const handleUpdateProfile = async () => {
+  try {
+    const isValid = await validateUserData(formData.value);
+    if (!isValid) {
+      throw new Error('Invalid form data');
+    }
+
+    if (!props.userData) {
+      throw new Error('No user data available');
+    }
+
+    const updatedUser = await updateUser({
+      ...props.userData,
+      ...formData.value
     });
 
-    const securityPreferences = ref({
-      mfaEnabled: false,
-      emailNotifications: true
-    });
+    emit('update:profile', updatedUser);
+    showSuccess('Profile updated successfully');
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to update profile';
+    showError(error.value);
+  }
+};
 
-    // Computed security context
-    const securityContext = computed(() => ({
-      isValid: isAuthenticated.value && !!userData.value,
-      lastActivity: userData.value?.lastLoginAt,
-      mfaEnabled: securityPreferences.value.mfaEnabled
-    }));
+const resetForm = () => {
+  if (props.userData) {
+    formData.value = {
+      firstName: props.userData.firstName || '',
+      lastName: props.userData.lastName || '',
+      email: props.userData.email || '',
+      phoneNumber: props.userData.phoneNumber || ''
+    };
+  }
+};
 
-    // Load user profile with security checks
-    const loadUserProfile = async () => {
-      try {
-        isLoading.value = true;
-        error.value = null;
+const handleLogout = async () => {
+  try {
+    await logout();
+    emit('security-event', { type: 'USER_LOGOUT' });
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : 'Failed to logout';
+    showError(error.value);
+  }
+};
 
-        // Validate current session
-        const sessionValid = await validateSession();
-        if (!sessionValid) {
-          throw new Error(t('errors.sessionExpired'));
-        }
-
-        // Fetch and validate user data
-        const user = await getUserById(1); // Replace with actual user ID from auth context
-        if (!user) {
-          throw new Error(t('errors.userNotFound'));
-        }
-
-        userData.value = user;
-        formData.value = {
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          phoneNumber: user.phoneNumber || ''
-        };
-
-      } catch (err) {
-        error.value = err instanceof Error ? err.message : t('errors.unknown');
+onMounted(() => {
+  if (!props.userData && isAuthenticated.value) {
+    getUserById(isAuthenticated.value)
+      .then(userData => {
+        emit('update:profile', userData);
+      })
+      .catch(err => {
+        error.value = err instanceof Error ? err.message : 'Failed to load profile';
         showError(error.value);
-      } finally {
-        isLoading.value = false;
-      }
-    };
-
-    // Handle profile update with validation
-    const handleUpdateProfile = async () => {
-      try {
-        if (!profileForm.value) return;
-        
-        isLoading.value = true;
-        error.value = null;
-
-        // Validate form
-        const isValid = await profileForm.value.validate();
-        if (!isValid) {
-          throw new Error(t('errors.validation'));
-        }
-
-        // Validate data format
-        if (!validateUserData(formData.value)) {
-          throw new Error(t('errors.invalidData'));
-        }
-
-        // Update user profile
-        await updateUser(userData.value!.id, {
-          ...formData.value,
-          securityPreferences: securityPreferences.value
-        });
-
-        showSuccess(t('profile.updateSuccess'));
-        await loadUserProfile(); // Refresh data
-
-      } catch (err) {
-        error.value = err instanceof Error ? err.message : t('errors.unknown');
-        showError(error.value);
-      } finally {
-        isLoading.value = false;
-      }
-    };
-
-    // Handle secure logout
-    const handleLogout = async () => {
-      try {
-        isLoading.value = true;
-        await logout();
-      } catch (err) {
-        error.value = err instanceof Error ? err.message : t('errors.logoutFailed');
-        showError(error.value);
-      } finally {
-        isLoading.value = false;
-      }
-    };
-
-    // Reset form to last saved state
-    const resetForm = () => {
-      if (userData.value) {
-        formData.value = {
-          firstName: userData.value.firstName,
-          lastName: userData.value.lastName,
-          email: userData.value.email,
-          phoneNumber: userData.value.phoneNumber || ''
-        };
-      }
-      error.value = null;
-    };
-
-    // Initialize component
-    onMounted(() => {
-      loadUserProfile();
-    });
-
-    return {
-      profileForm,
-      userData,
-      formData,
-      isLoading,
-      error,
-      securityPreferences,
-      securityContext,
-      handleUpdateProfile,
-      handleLogout,
-      resetForm
-    };
+      });
   }
 });
 </script>
 
 <style lang="scss" scoped>
-.user-profile-card {
+.user-profile {
   max-width: 600px;
   margin: 0 auto;
-}
-
-.security-status {
-  border-radius: 4px;
-  padding: 4px 8px;
+  padding: 1rem;
 }
 </style>

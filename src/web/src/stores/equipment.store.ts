@@ -6,11 +6,8 @@
 
 import { defineStore } from 'pinia'; // ^2.1.0
 import { ref, computed, watch } from 'vue'; // ^3.3.0
-import { 
-  Equipment, 
-  EquipmentAssignment, 
-  EquipmentType 
-} from '../models/equipment.model';
+import type { Equipment, EquipmentAssignment, EquipmentHistory, EquipmentStatus } from '../models/equipment.model';
+import { EquipmentType } from '../models/equipment.model';
 import { 
   getEquipmentList, 
   getEquipmentById, 
@@ -56,11 +53,11 @@ export const useEquipmentStore = defineStore('equipment', () => {
 
   // Computed properties
   const availableEquipment = computed(() => 
-    equipment.value.filter(item => item.isAvailable)
+    equipment.value.filter(item => item.status === 'AVAILABLE')
   );
 
   const assignedEquipment = computed(() => 
-    equipment.value.filter(item => !item.isAvailable)
+    equipment.value.filter(item => item.status !== 'AVAILABLE')
   );
 
   const maintenanceRequired = computed(() => 
@@ -187,7 +184,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
       // Update equipment availability
       const equipmentIndex = equipment.value.findIndex(item => item.id === assignment.equipmentId);
       if (equipmentIndex !== -1) {
-        equipment.value[equipmentIndex].isAvailable = false;
+        equipment.value[equipmentIndex].status = 'IN_USE';
         cache.value[assignment.equipmentId] = equipment.value[equipmentIndex];
       }
       notificationStore.success('Equipment assigned successfully');
@@ -217,7 +214,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
       // Update equipment availability
       const equipmentIndex = equipment.value.findIndex(item => item.id === response.equipmentId);
       if (equipmentIndex !== -1) {
-        equipment.value[equipmentIndex].isAvailable = true;
+        equipment.value[equipmentIndex].status = 'AVAILABLE';
         cache.value[response.equipmentId] = equipment.value[equipmentIndex];
       }
       notificationStore.success('Equipment return processed successfully');

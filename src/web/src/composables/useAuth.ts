@@ -4,18 +4,20 @@
  * @version 1.0.0
  */
 
-import { ref, computed, onMounted, onUnmounted } from 'vue'; // ^3.3.0
-import { 
-    useAuthStore,
-    type SecurityEvent 
-} from '../stores/auth.store';
+import { ref, computed, effectScope, onScopeDispose } from 'vue';
+import { useAuthStore } from '../stores/auth.store';
 import { 
     type LoginCredentials,
     type DeviceInfo,
     AuthStatus,
     type AuthError,
-    type MfaChallenge 
+    type MfaChallenge
 } from '../models/auth.model';
+import { UserRoleType } from '../models/user.model';
+import { useRouter } from 'vue-router';
+import { useQuasar } from 'quasar';
+import type { IUser } from '@/models/user.model';
+import { performAzureAuth, completeMfaChallenge, verifyTokenIntegrity } from '@/services/auth.service';
 
 // Security configuration constants
 const RATE_LIMIT_WINDOW = 5 * 60 * 1000; // 5 minutes
@@ -23,251 +25,203 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const DEVICE_TRUST_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 days
 const SECURITY_CHECK_INTERVAL = 30 * 1000; // 30 seconds
 
+interface SecurityEvent {
+    type: string;
+    timestamp: Date;
+    details?: Record<string, unknown>;
+}
+
 /**
  * Composable that provides enhanced authentication functionality with security features
  */
 export function useAuth() {
     const authStore = useAuthStore();
+    const router = useRouter();
+    const $q = useQuasar();
     
-    // Reactive state
     const isLoading = ref(false);
     const error = ref<string | null>(null);
-    const mfaRequired = ref(false);
-    const loginAttempts = ref<Date[]>([]);
-    const securityCheckInterval = ref<number | null>(null);
-    
-    // Computed properties
-    const isAuthenticated = computed(() => authStore.isAuthenticated);
     const currentUser = computed(() => authStore.user);
-    const securityStatus = computed(() => ({
-        isLocked: isRateLimited.value,
-        lastActivity: authStore.session?.lastActivityAt,
-        deviceTrusted: checkDeviceTrust(),
-        mfaEnabled: !!authStore.user?.userRoles.some(r => r.roleId === 'Admin')
-    }));
-    
-    // Rate limiting check
-    const isRateLimited = computed(() => {
-        const recentAttempts = loginAttempts.value.filter(
-            timestamp => Date.now() - timestamp.getTime() < RATE_LIMIT_WINDOW
-        );
-        return recentAttempts.length >= MAX_LOGIN_ATTEMPTS;
-    });
+    const isAuthenticated = computed(() => authStore.authenticated);
+    const mfaRequired = ref(false);
+    const securityStatus = ref({ isLocked: false, mfaEnabled: false });
+    const isInitialized = ref(false);
 
-    /**
-     * Handles user login with enhanced security checks
-     */
-    const login = async (credentials: LoginCredentials): Promise<void> => {
+    const validateSession = async (): Promise<boolean> => {
         try {
-            if (isRateLimited.value) {
-                throw new Error('Too many login attempts. Please try again later.');
+            if (!isAuthenticated.value) return false;
+
+            // Check if token is valid
+            const isTokenValid = await verifyTokenIntegrity(authStore.tokens);
+            if (!isTokenValid) {
+                await logout();
+                return false;
             }
 
-            isLoading.value = true;
-            error.value = null;
-            loginAttempts.value.push(new Date());
-
-            // Enhance credentials with device information
-            const deviceInfo = await captureDeviceInfo();
-            const enhancedCredentials = { ...credentials, deviceInfo };
-
-            // Attempt login
-            await authStore.login(enhancedCredentials);
-
-            // Handle MFA if required
-            if (authStore.authStatus === AuthStatus.MFA_REQUIRED) {
-                mfaRequired.value = true;
-                return;
+            // Check if session is expired
+            if (authStore.sessionTimeRemaining <= 0) {
+                await logout();
+                return false;
             }
 
-            // Setup security monitoring
-            initializeSecurityMonitoring();
-
-        } catch (err) {
-            handleError(err);
-        } finally {
-            isLoading.value = false;
+            return true;
+        } catch (error) {
+            console.error('Session validation failed:', error);
+            await logout();
+            return false;
         }
     };
 
-    /**
-     * Handles MFA verification process
-     */
-    const verifyMfa = async (code: string): Promise<void> => {
+    const refreshToken = async (): Promise<void> => {
         try {
-            isLoading.value = true;
-            error.value = null;
+            if (!authStore.tokens?.refreshToken) {
+                throw new Error('No refresh token available');
+            }
 
-            await authStore.verifyMfa(code);
-            mfaRequired.value = false;
-            initializeSecurityMonitoring();
-
-        } catch (err) {
-            handleError(err);
-        } finally {
-            isLoading.value = false;
+            await authStore.refreshToken();
+        } catch (error) {
+            console.error('Token refresh failed:', error);
+            await logout();
         }
     };
 
-    /**
-     * Handles user logout with cleanup
-     */
-    const logout = async (): Promise<void> => {
+    const handleSecurityEvent = async (event: SecurityEvent) => {
         try {
-            isLoading.value = true;
-            await authStore.logout();
-            cleanupSecurityMonitoring();
-        } finally {
-            isLoading.value = false;
+            // Log the security event
+            authStore.logSecurityEvent(event.type as any, event.details || {});
+
+            // Handle specific security events
+            switch (event.type) {
+                case 'SESSION_INVALID':
+                case 'SECURITY_VIOLATION':
+                    await logout();
+                    break;
+                default:
+                    console.warn('Unhandled security event:', event);
+            }
+        } catch (error) {
+            console.error('Failed to handle security event:', error);
         }
     };
 
-    /**
-     * Captures device information for security tracking
-     */
-    const captureDeviceInfo = async (): Promise<DeviceInfo> => {
-        return {
-            deviceId: await generateDeviceId(),
-            userAgent: navigator.userAgent,
-            ipAddress: await fetchClientIp()
-        };
-    };
-
-    /**
-     * Generates a unique device identifier
-     */
-    const generateDeviceId = async (): Promise<string> => {
-        const buffer = await crypto.subtle.digest(
-            'SHA-256',
-            new TextEncoder().encode(navigator.userAgent + navigator.language + screen.width + screen.height)
-        );
-        return Array.from(new Uint8Array(buffer))
-            .map(b => b.toString(16).padStart(2, '0'))
-            .join('');
-    };
-
-    /**
-     * Fetches client IP address through a secure endpoint
-     */
-    const fetchClientIp = async (): Promise<string> => {
-        try {
-            const response = await fetch('/api/v1/security/client-ip');
-            const data = await response.json();
-            return data.ip;
-        } catch {
-            return 'unknown';
-        }
-    };
-
-    /**
-     * Initializes security monitoring
-     */
-    const initializeSecurityMonitoring = (): void => {
-        cleanupSecurityMonitoring();
+    const initializeAuth = async () => {
+        if (isInitialized.value) return true;
         
-        securityCheckInterval.value = window.setInterval(() => {
-            // Check token validity
-            if (authStore.tokens && !authStore.isTokenValid) {
-                handleSecurityEvent({
-                    type: 'TOKEN_REFRESH',
-                    timestamp: new Date(),
-                    details: { reason: 'token_expired' }
-                });
-            }
+        isLoading.value = true;
+        error.value = null;
+        
+        try {
+            // Try to initialize from stored session
+            const hasValidSession = await authStore.initializeFromStorage();
+            isInitialized.value = true;
+            return hasValidSession;
+        } catch (err) {
+            console.error('Auth initialization failed:', err);
+            error.value = 'Failed to initialize authentication';
+            isInitialized.value = true;
+            return false;
+        } finally {
+            isLoading.value = false;
+        }
+    };
 
-            // Check session activity
-            if (authStore.session && !authStore.sessionTimeRemaining) {
+    const login = async (credentials: LoginCredentials): Promise<void> => {
+        isLoading.value = true;
+        error.value = null;
+        
+        try {
+            await authStore.login(credentials);
+            
+            // Show success notification
+            $q.notify({
+                type: 'positive',
+                message: 'Successfully logged in',
+                position: 'top',
+                timeout: 2000
+            });
+            
+            // Navigate to dashboard or saved redirect
+            const redirect = router.currentRoute.value.query.redirect as string;
+            await router.push(redirect || '/dashboard');
+        } catch (err: any) {
+            error.value = err.message || 'Login failed';
+            throw err;
+        } finally {
+            isLoading.value = false;
+        }
+    };
+
+    const logout = async () => {
+        try {
+            await authStore.clearAuth();
+            isInitialized.value = false;
+            await router.push('/auth/login');
+        } catch (err) {
+            console.error('Logout failed:', err);
+            error.value = 'Failed to logout';
+        }
+    };
+
+    const startSessionMonitoring = () => {
+        // Monitor session status
+        setInterval(async () => {
+            const isValid = await checkAuthStatus();
+            if (!isValid) {
                 handleSecurityEvent({
-                    type: 'SESSION_EXPIRED',
-                    timestamp: new Date(),
-                    details: { reason: 'inactivity' }
+                    type: 'SESSION_INVALID',
+                    timestamp: new Date()
                 });
             }
         }, SECURITY_CHECK_INTERVAL);
     };
 
-    /**
-     * Cleans up security monitoring
-     */
-    const cleanupSecurityMonitoring = (): void => {
-        if (securityCheckInterval.value) {
-            clearInterval(securityCheckInterval.value);
-            securityCheckInterval.value = null;
-        }
-    };
-
-    /**
-     * Checks if the current device is trusted
-     */
-    const checkDeviceTrust = (): boolean => {
+    const checkAuthStatus = async (): Promise<boolean> => {
         try {
-            const trustData = localStorage.getItem('device_trust');
-            if (!trustData) return false;
+            if (!authStore.isAuthenticated) return false;
+            
+            // Check token validity
+            if (authStore.tokens && !authStore.isTokenValid) {
+                await authStore.refreshToken();
+            }
 
-            const { timestamp, deviceId } = JSON.parse(trustData);
-            return Date.now() - timestamp < DEVICE_TRUST_EXPIRY && 
-                   deviceId === authStore.session?.deviceInfo.deviceId;
-        } catch {
+            // Check session validity
+            const timeRemaining = authStore.sessionTimeRemaining;
+            if (timeRemaining <= 0) {
+                await logout();
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Auth status check failed:', error);
+            await logout();
             return false;
         }
     };
 
-    /**
-     * Handles security events
-     */
-    const handleSecurityEvent = async (event: SecurityEvent): Promise<void> => {
-        await authStore.trackSecurityEvent(event);
-
-        switch (event.type) {
-            case 'SESSION_EXPIRED':
-                await logout();
-                error.value = 'Your session has expired. Please log in again.';
-                break;
-            case 'SECURITY_VIOLATION':
-                await logout();
-                error.value = 'A security violation was detected. Please contact support.';
-                break;
+    const hasPermission = (permission: string): boolean => {
+        const user = authStore.currentUser;
+        if (!user || !user.permissions) {
+            return false;
         }
+        return user.permissions.includes(permission);
     };
-
-    /**
-     * Handles authentication errors
-     */
-    const handleError = (err: unknown): void => {
-        const authError = err as AuthError;
-        error.value = authError.message || 'An authentication error occurred';
-        
-        handleSecurityEvent({
-            type: 'LOGIN_FAILURE',
-            timestamp: new Date(),
-            details: { error: authError }
-        });
-    };
-
-    // Lifecycle hooks
-    onMounted(() => {
-        if (isAuthenticated.value) {
-            initializeSecurityMonitoring();
-        }
-    });
-
-    onUnmounted(() => {
-        cleanupSecurityMonitoring();
-    });
 
     return {
-        // State
         isLoading,
         error,
-        mfaRequired,
-        isAuthenticated,
         currentUser,
+        isAuthenticated,
+        mfaRequired,
         securityStatus,
-
-        // Methods
-        login,
+        isInitialized,
+        initializeAuth,
+        checkAuthStatus,
+        handleSecurityEvent,
         logout,
-        verifyMfa,
-        handleSecurityEvent
+        login,
+        hasPermission,
+        validateSession,
+        refreshToken
     };
 }

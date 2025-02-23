@@ -2,7 +2,6 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { quasar } from '@quasar/vite-plugin';
 import path from 'path';
-import { framework, build as quasarBuild } from './quasar.config';
 
 // Vite v4.3.0
 // @vitejs/plugin-vue v4.2.0
@@ -12,77 +11,85 @@ import { framework, build as quasarBuild } from './quasar.config';
 export default defineConfig({
   plugins: [
     vue({
-      reactivityTransform: true,
-      template: {
-        compilerOptions: {
-          isCustomElement: (tag) => tag.startsWith('q-')
-        }
+      script: {
+        defineModel: true,
+        propsDestructure: true
       }
     }),
-    quasar({
-      sassVariables: 'src/assets/styles/quasar.variables.scss',
-      framework: framework,
-      autoImportComponentCase: 'pascal'
-    })
+    quasar()
   ],
 
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@components': path.resolve(__dirname, './src/components'),
-      '@views': path.resolve(__dirname, './src/views'),
-      '@stores': path.resolve(__dirname, './src/stores'),
-      '@assets': path.resolve(__dirname, './src/assets'),
-      '@styles': path.resolve(__dirname, './src/assets/styles')
-    }
+      '@': path.resolve(__dirname, 'src')
+    },
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
+  },
+
+  css: {
+    preprocessorOptions: {
+      scss: {
+        additionalData: '@use "sass:math"; @use "sass:map";'
+      }
+    },
+    devSourcemap: true
   },
 
   server: {
     port: 8080,
     host: true,
+    fs: {
+      strict: false,
+      allow: ['..']
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
-        timeout: 30000,
-        proxyTimeout: 30000,
-        headers: {
-          'Connection': 'keep-alive'
-        },
-        onError: (err) => {
-          console.error('Proxy error:', err);
+        ws: true,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('proxy error', err);
+          });
+          proxy.on('proxyReq', (proxyReq, req, res) => {
+            console.log('Sending Request to the Target:', req.method, req.url);
+          });
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+          });
         }
       }
-    },
-    hmr: {
-      overlay: true
-    },
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
   },
 
   build: {
-    target: ['chrome90', 'firefox88', 'safari14', 'edge90'],
+    target: 'esnext',
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: true,
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true,
-        drop_debugger: true
+        drop_console: process.env.NODE_ENV === 'production',
+        drop_debugger: process.env.NODE_ENV === 'production'
       }
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor': ['vue', 'vue-router', 'pinia', 'quasar'],
-          'components': ['./src/components/**/*.vue'],
-          'views': ['./src/views/**/*.vue']
+        manualChunks(id: string) {
+          if (id.includes('node_modules')) {
+            if (id.includes('vue') || id.includes('pinia') || id.includes('quasar')) {
+              return 'vendor';
+            }
+          }
+          if (id.includes('/src/components/')) {
+            return 'components';
+          }
+          if (id.includes('/src/views/')) {
+            return 'views';
+          }
+          return null;
         }
       }
     },
@@ -94,29 +101,16 @@ export default defineConfig({
   optimizeDeps: {
     include: [
       'vue',
-      'vue-router',
       'pinia',
       'quasar',
       '@vueuse/core'
-    ],
-    exclude: ['@quasar/extras']
-  },
-
-  css: {
-    preprocessorOptions: {
-      scss: {
-        additionalData: `
-          @import "@/assets/styles/quasar.variables.scss";
-          @import "@/assets/styles/variables.scss";
-        `
-      }
-    },
-    devSourcemap: true
+    ]
   },
 
   esbuild: {
     jsxFactory: 'h',
-    jsxFragment: 'Fragment'
+    jsxFragment: 'Fragment',
+    target: 'es2020'
   },
 
   preview: {

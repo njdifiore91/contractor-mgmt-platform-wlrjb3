@@ -11,85 +11,55 @@
   </div>
 </template>
 
-<script>
-import { QSpinner } from 'quasar' // v2.0.0
-import { responsive-spacing } from '@/assets/styles/app.scss'
+<script setup lang="ts">
+import { computed } from 'vue';
+import { useQuasar } from 'quasar';
 
-export default {
-  name: 'LoadingSpinner',
-  
-  components: {
-    QSpinner
-  },
+const $q = useQuasar();
 
-  props: {
-    size: {
-      type: String,
-      default: 'medium',
-      validator: value => ['small', 'medium', 'large'].includes(value) && typeof value === 'string'
-    },
-    color: {
-      type: String,
-      default: 'primary',
-      validator: value => [
-        'primary',
-        'secondary',
-        'accent',
-        'dark',
-        'positive',
-        'negative',
-        'info',
-        'warning'
-      ].includes(value)
-    },
-    thickness: {
-      type: Number,
-      default: 5,
-      validator: value => value >= 2 && value <= 10
-    }
-  },
-
-  computed: {
-    spinnerProps() {
-      return {
-        size: this.computeSpinnerSize(this.size),
-        color: this.$q.dark.isActive ? `${this.color}-light` : this.color,
-        thickness: this.thickness,
-        // Material Design animation timing
-        animate: {
-          duration: '1.5s',
-          easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
-        }
-      }
-    },
-
-    ariaLabel() {
-      return this.$t('common.loading') || 'Loading...'
-    }
-  },
-
-  methods: {
-    computeSpinnerSize(size) {
-      const sizeMappings = {
-        small: 24,
-        medium: 36,
-        large: 48
-      }
-
-      const baseSize = sizeMappings[size]
-      const breakpointScaling = {
-        sm: 1,
-        md: 1.25,
-        lg: 1.5
-      }
-
-      const currentBreakpoint = this.$q.screen.name
-      const scale = breakpointScaling[currentBreakpoint] || 1
-
-      return Math.round(baseSize * scale)
-    }
-  }
+interface Props {
+  size?: 'small' | 'medium' | 'large';
+  color?: string;
+  thickness?: number;
+  ariaLabel?: string;
 }
+
+const props = withDefaults(defineProps<Props>(), {
+  size: 'medium',
+  color: 'primary',
+  thickness: 5,
+  ariaLabel: 'Loading...'
+});
+
+const computeSpinnerSize = (size: string) => {
+  const sizeMappings = {
+    small: 24,
+    medium: 36,
+    large: 48
+  };
+
+  const baseSize = sizeMappings[size as keyof typeof sizeMappings];
+  const breakpointScaling = {
+    sm: 1,
+    md: 1.25,
+    lg: 1.5
+  };
+
+  const currentBreakpoint = $q.screen.name;
+  const scale = breakpointScaling[currentBreakpoint as keyof typeof breakpointScaling] || 1;
+
+  return Math.round(baseSize * scale);
+};
+
+const spinnerProps = computed(() => ({
+  size: computeSpinnerSize(props.size),
+  color: $q.dark.isActive ? `${props.color}-light` : props.color,
+  thickness: props.thickness,
+  animate: {
+    duration: '1.5s',
+    easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
+  }
+}));
 </script>
 
 <style lang="scss" scoped>
@@ -97,7 +67,7 @@ export default {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: responsive-spacing(margin, $space-base);
+  margin: var(--space-base);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform, opacity;
 }

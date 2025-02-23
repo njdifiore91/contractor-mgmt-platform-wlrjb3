@@ -5,9 +5,10 @@
  * @version 1.0.0
  */
 
-import { AxiosResponse } from 'axios'; // ^1.0.0
-import { encrypt } from 'crypto-js'; // ^4.1.1
-import { IUser, IRole, UserRoleType } from '../models/user.model';
+import type { AxiosResponse } from 'axios';
+import CryptoJS from 'crypto-js';
+import type { IUser, IRole } from '@/models/user.model';
+import { UserRoleType } from '@/models/user.model';
 import api from '../utils/api.util';
 
 // API endpoint configuration
@@ -153,9 +154,9 @@ export async function createUser(userData: CreateUserData): Promise<{ id: number
         // Encrypt sensitive PII data
         const encryptedData = {
             ...userData,
-            firstName: encrypt(userData.firstName).toString(),
-            lastName: encrypt(userData.lastName).toString(),
-            phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber).toString() : undefined
+            firstName: CryptoJS.AES.encrypt(userData.firstName, 'secretKey').toString(),
+            lastName: CryptoJS.AES.encrypt(userData.lastName, 'secretKey').toString(),
+            phoneNumber: userData.phoneNumber ? CryptoJS.AES.encrypt(userData.phoneNumber, 'secretKey').toString() : undefined
         };
 
         const response = await api.post<{ id: number; azureAdB2CId: string }>(
@@ -191,9 +192,9 @@ export async function updateUser(id: number, userData: UpdateUserData): Promise<
         // Encrypt sensitive PII data
         const encryptedData = {
             ...userData,
-            firstName: userData.firstName ? encrypt(userData.firstName).toString() : undefined,
-            lastName: userData.lastName ? encrypt(userData.lastName).toString() : undefined,
-            phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber).toString() : undefined
+            firstName: userData.firstName ? CryptoJS.AES.encrypt(userData.firstName, 'secretKey').toString() : undefined,
+            lastName: userData.lastName ? CryptoJS.AES.encrypt(userData.lastName, 'secretKey').toString() : undefined,
+            phoneNumber: userData.phoneNumber ? CryptoJS.AES.encrypt(userData.phoneNumber, 'secretKey').toString() : undefined
         };
 
         // Optimistically update cache

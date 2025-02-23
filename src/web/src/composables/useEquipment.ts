@@ -5,13 +5,12 @@
  */
 
 import { ref, computed, onMounted, watchEffect } from 'vue'; // v3.x
-import { useQuasar } from '@quasar/app'; // v2.x
+import { useQuasar } from 'quasar'; // v2.x
 import { debounce } from 'lodash'; // v4.x
 import { 
   Equipment, 
   EquipmentAssignment, 
   EquipmentType, 
-  EquipmentCondition 
 } from '../models/equipment.model';
 import { useEquipmentStore } from '../stores/equipment.store';
 
@@ -198,7 +197,7 @@ export function useEquipment() {
     error.value = err.message || 'An unexpected error occurred';
     $q.notify({
       type: 'negative',
-      message: error.value,
+      message: error.value as string,
       timeout: 5000
     });
   };

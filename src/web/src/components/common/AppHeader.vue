@@ -95,13 +95,17 @@ export default defineComponent({
     const { isAuthenticated, handleLogout, validateSession, refreshToken } = useAuth();
     const profileMenuOpen = ref(false);
     const sessionCheckInterval = ref<number | null>(null);
+    const securityStatusRef = ref({ isValid: true });
 
     // Security status monitoring
-    const securityStatus = computed(() => ({
-      isValid: isAuthenticated.value && validateSession(),
-      lastActivity: new Date(),
-      deviceTrusted: true
-    }));
+    const updateSecurityStatus = async () => {
+      const isValid = await validateSession();
+      securityStatusRef.value = {
+        isValid,
+        lastActivity: new Date(),
+        deviceTrusted: true
+      };
+    };
 
     // Toggle navigation menu with accessibility
     const toggleNavigation = () => {
@@ -150,10 +154,12 @@ export default defineComponent({
     };
 
     // Initialize security monitoring
-    onMounted(() => {
+    onMounted(async () => {
       if (isAuthenticated.value) {
+        await updateSecurityStatus();
         sessionCheckInterval.value = window.setInterval(async () => {
-          if (!await validateSession()) {
+          await updateSecurityStatus();
+          if (!securityStatusRef.value.isValid) {
             await handleLogout();
           }
           await refreshToken();
@@ -171,7 +177,7 @@ export default defineComponent({
     return {
       isAuthenticated,
       profileMenuOpen,
-      securityStatus,
+      securityStatus: computed(() => securityStatusRef.value),
       toggleNavigation,
       toggleProfileMenu,
       handleKeyboardNavigation,

@@ -1,5 +1,8 @@
-// @types/microsoft-spatial v7.12.2 - Required for geographic location data types
-import { GeographyPoint } from '@types/microsoft-spatial';
+// Define our own location type instead of using microsoft-spatial
+export interface GeographyPoint {
+    latitude: number;
+    longitude: number;
+}
 
 /**
  * Enum defining all possible inspector statuses for workflow management

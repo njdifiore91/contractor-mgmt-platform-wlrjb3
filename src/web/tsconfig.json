@@ -1,55 +1,38 @@
 {
+  "extends": "@vue/tsconfig/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "moduleResolution": "Node",
+    "target": "esnext",
+    "module": "esnext",
     "strict": true,
     "jsx": "preserve",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "moduleResolution": "node",
     "skipLibCheck": true,
-    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": true,
+    "sourceMap": true,
     "baseUrl": ".",
+    "types": [
+      "vite/client",
+      "vue",
+      "quasar"
+    ],
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": [
-      "vite/client",
-      "quasar",
-      "node",
-      "jest"
-    ],
-    "allowJs": true,
-    "sourceMap": true,
-    "declaration": false,
-    "removeComments": false,
-    "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true,
-    "noImplicitAny": true,
-    "noImplicitThis": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "composite": true,
-    "incremental": true
+    "lib": [
+      "esnext",
+      "dom",
+      "dom.iterable",
+      "scripthost"
+    ]
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.tsx",
-    "src/**/*.vue",
-    "tests/**/*.ts",
-    "tests/**/*.tsx"
+    "src/**/*.vue"
   ],
   "exclude": [
     "node_modules",
@@ -59,9 +42,5 @@
     {
       "path": "./tsconfig.node.json"
     }
-  ],
-  "vueCompilerOptions": {
-    "target": 3.3,
-    "experimentalDisableTemplateSupport": false
-  }
+  ]
 }

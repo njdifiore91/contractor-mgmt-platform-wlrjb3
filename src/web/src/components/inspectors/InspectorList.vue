@@ -127,12 +127,17 @@
 import { ref, computed, onMounted, watchEffect } from 'vue';
 import { QCard, QCardSection, QSelect, QInput, QBtn, QChip, QTd } from 'quasar'; // v2.0.0
 import { debounce } from 'lodash'; // v4.17.21
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
 import DataTable from '../common/DataTable.vue';
 import SearchBar from '../common/SearchBar.vue';
 import { useNotification } from '@/composables/useNotification';
 import { InspectorStatus, type Inspector } from '@/models/inspector.model';
 import { validateRequired } from '@/utils/validation.util';
+
+// Custom type for geographic point
+interface GeographicPoint {
+  latitude: number;
+  longitude: number;
+}
 
 // Component state
 const loading = ref(false);
@@ -238,7 +243,7 @@ const handleStatusFilterChange = (statuses: InspectorStatus[]) => {
   statusFilter.value = statuses;
 };
 
-const handleGeographicSearch = async (location: GeographyPoint, radius: number) => {
+const handleGeographicSearch = async (location: GeographicPoint, radius: number) => {
   try {
     loading.value = true;
     // API call would go here
@@ -280,7 +285,7 @@ const getStatusColor = (status: InspectorStatus): string => {
   return colors[status] || 'grey';
 };
 
-const formatLocation = (location: GeographyPoint): string => {
+const formatLocation = (location: GeographicPoint): string => {
   if (!location) return 'Unknown';
   return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`;
 };

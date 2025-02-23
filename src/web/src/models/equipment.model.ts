@@ -1,3 +1,8 @@
+/**
+ * @fileoverview TypeScript model definitions for equipment-related entities
+ * @version 1.0.0
+ */
+
 // Vue.js v3.x - Type support for Vue.js integration
 import { defineComponent } from 'vue';
 
@@ -5,7 +10,7 @@ import { defineComponent } from 'vue';
  * Enumeration of all available equipment types in the system.
  * Used for strong typing and validation of equipment categorization.
  */
-export enum EquipmentType {
+export const enum EquipmentType {
     Laptop = 'Laptop',
     Mobile = 'Mobile',
     Tablet = 'Tablet',
@@ -15,10 +20,15 @@ export enum EquipmentType {
 }
 
 /**
- * Interface defining the core equipment data structure.
+ * Equipment status type
+ */
+export type EquipmentStatus = 'AVAILABLE' | 'IN_USE' | 'MAINTENANCE' | 'RETIRED';
+
+/**
+ * Type defining the core equipment data structure.
  * Represents physical assets that can be assigned to inspectors.
  */
-export interface Equipment {
+export type Equipment = {
     /** Unique identifier for the equipment */
     id: number;
 
@@ -34,6 +44,9 @@ export interface Equipment {
     /** Current physical condition of the equipment */
     condition: string;
 
+    /** Current status of the equipment */
+    status: EquipmentStatus;
+
     /** Indicates if equipment is in active inventory */
     isActive: boolean;
 
@@ -48,13 +61,13 @@ export interface Equipment {
 
     /** Additional remarks about the equipment */
     notes: string;
-}
+};
 
 /**
- * Interface defining equipment assignment records.
+ * Type defining equipment assignment records.
  * Tracks the relationship between equipment and inspectors over time.
  */
-export interface EquipmentAssignment {
+export type EquipmentAssignment = {
     /** Unique identifier for the assignment */
     id: number;
 
@@ -81,4 +94,55 @@ export interface EquipmentAssignment {
 
     /** Indicates if this is the current active assignment */
     isActive: boolean;
-}
+};
+
+/**
+ * Type defining the equipment interface for API responses
+ */
+export type IEquipment = {
+    id: string;
+    name: string;
+    type: string;
+    serialNumber: string;
+    status: 'available' | 'assigned' | 'maintenance' | 'retired';
+    condition: 'new' | 'good' | 'fair' | 'poor';
+    purchaseDate: Date;
+    lastMaintenanceDate: Date | null;
+    assignedTo: string | null;
+    location: string;
+    notes: string;
+    createdAt: Date;
+    updatedAt: Date;
+};
+
+/**
+ * Type defining equipment history records
+ */
+export type EquipmentHistory = {
+    /** Unique identifier for the history record */
+    id: number;
+
+    /** Reference to the equipment */
+    equipmentId: number;
+
+    /** Type of history event */
+    eventType: 'ASSIGNED' | 'RETURNED' | 'MAINTENANCE' | 'STATUS_CHANGE';
+
+    /** Previous status if status changed */
+    previousStatus?: EquipmentStatus;
+
+    /** New status if status changed */
+    newStatus?: EquipmentStatus;
+
+    /** Reference to related assignment if applicable */
+    assignmentId?: number;
+
+    /** User who performed the action */
+    performedBy: number;
+
+    /** When the action was performed */
+    performedAt: Date;
+
+    /** Additional notes about the event */
+    notes?: string;
+};

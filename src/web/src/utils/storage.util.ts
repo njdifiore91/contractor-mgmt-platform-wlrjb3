@@ -59,7 +59,7 @@ export class StorageService {
   private readonly registry: Map<string, StorageMetadata>;
 
   constructor() {
-    this.encryptionKey = process.env.VUE_APP_STORAGE_ENCRYPTION_KEY as string;
+    this.encryptionKey = import.meta.env.VUE_APP_STORAGE_ENCRYPTION_KEY as string;
     this.storage = window.localStorage;
     this.registry = new Map();
     

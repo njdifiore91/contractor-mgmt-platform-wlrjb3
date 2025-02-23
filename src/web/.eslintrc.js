@@ -62,8 +62,8 @@ module.exports = {
     'vue/v-on-event-hyphenation': ['error', 'always'],
 
     // General ESLint rules
-    'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
-    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
+    'no-console': import.meta.env.NODE_ENV === 'production' ? 'error' : 'warn',
+    'no-debugger': import.meta.env.NODE_ENV === 'production' ? 'error' : 'warn',
     'no-unused-expressions': 'error',
     'no-unused-labels': 'error',
     'no-unused-private-class-members': 'error',

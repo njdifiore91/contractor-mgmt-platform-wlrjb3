@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'; // ^2.1.0
 import { Notify } from 'quasar'; // ^2.0.0
+import type { QNotifyCreateOptions } from 'quasar';
 import { v4 as uuidv4 } from 'uuid'; // ^9.0.0 - Added for unique IDs
 
 // Constants for notification configuration
@@ -29,7 +30,7 @@ export const DEFAULT_NOTIFICATION_OPTIONS = {
   progress: true,
   group: false,
   html: false,
-  actions: [],
+  actions: [] as NotificationAction[],
   multiLine: false,
   caption: '',
   attrs: {
@@ -64,7 +65,6 @@ export interface Notification {
   actions?: NotificationAction[];
   attrs?: Record<string, unknown>;
   onDismiss?: () => void;
-  onShow?: () => void;
 }
 
 export interface NotificationState {
@@ -73,13 +73,15 @@ export interface NotificationState {
   config: typeof DEFAULT_NOTIFICATION_OPTIONS;
 }
 
+const defaultState: NotificationState = {
+  notifications: [],
+  notificationQueue: [],
+  config: { ...DEFAULT_NOTIFICATION_OPTIONS },
+};
+
 // Store implementation
 export const useNotificationStore = defineStore('notification', {
-  state: (): NotificationState => ({
-    notifications: [],
-    notificationQueue: [],
-    config: { ...DEFAULT_NOTIFICATION_OPTIONS }
-  }),
+  state: (): NotificationState => ({ ...defaultState }),
 
   getters: {
     activeNotifications: (state) => state.notifications,
@@ -90,7 +92,6 @@ export const useNotificationStore = defineStore('notification', {
   actions: {
     /**
      * Updates the global notification configuration
-     * @param config Partial configuration to update
      */
     updateConfig(config: Partial<typeof DEFAULT_NOTIFICATION_OPTIONS>) {
       this.config = {
@@ -101,13 +102,13 @@ export const useNotificationStore = defineStore('notification', {
 
     /**
      * Adds a new notification to the system
-     * @param notification Notification configuration
      */
     addNotification(notification: Omit<Notification, 'id'>) {
       const newNotification: Notification = {
         id: uuidv4(),
-        ...DEFAULT_NOTIFICATION_OPTIONS,
-        ...notification
+        ...this.config,
+        ...notification,
+        actions: notification.actions || []
       };
 
       // Validate notification type
@@ -127,30 +128,27 @@ export const useNotificationStore = defineStore('notification', {
 
     /**
      * Displays a notification using Quasar's Notify system
-     * @param notification Notification to display
      */
     showNotification(notification: Notification) {
-      const { id, type, message, onDismiss, onShow, ...options } = notification;
+      const { id, type, message, onDismiss, ...options } = notification;
 
       this.notifications.push(notification);
 
-      Notify.create({
+      const notifyOptions: QNotifyCreateOptions = {
         type,
         message,
         ...options,
         onDismiss: () => {
           this.removeNotification(id);
           onDismiss?.();
-        },
-        onShow: () => {
-          onShow?.();
         }
-      });
+      };
+
+      Notify.create(notifyOptions);
     },
 
     /**
      * Removes a notification from the active list
-     * @param id ID of the notification to remove
      */
     removeNotification(id: string) {
       const index = this.notifications.findIndex(n => n.id === id);
@@ -176,15 +174,16 @@ export const useNotificationStore = defineStore('notification', {
      * Clears all active notifications and the queue
      */
     clearNotifications() {
-      Notify.dismiss();
+      // Clear all Quasar notifications
+      const notifications = document.querySelectorAll('.q-notification');
+      notifications.forEach(el => el.remove());
+      
       this.notifications = [];
       this.notificationQueue = [];
     },
 
     /**
-     * Convenience method for showing success notifications
-     * @param message Success message
-     * @param options Additional notification options
+     * Convenience methods for showing different types of notifications
      */
     success(message: string, options?: Partial<Omit<Notification, 'id' | 'type' | 'message'>>) {
       this.addNotification({
@@ -194,11 +193,6 @@ export const useNotificationStore = defineStore('notification', {
       });
     },
 
-    /**
-     * Convenience method for showing error notifications
-     * @param message Error message
-     * @param options Additional notification options
-     */
     error(message: string, options?: Partial<Omit<Notification, 'id' | 'type' | 'message'>>) {
       this.addNotification({
         type: NOTIFICATION_TYPES.ERROR,
@@ -211,11 +205,6 @@ export const useNotificationStore = defineStore('notification', {
       });
     },
 
-    /**
-     * Convenience method for showing warning notifications
-     * @param message Warning message
-     * @param options Additional notification options
-     */
     warning(message: string, options?: Partial<Omit<Notification, 'id' | 'type' | 'message'>>) {
       this.addNotification({
         type: NOTIFICATION_TYPES.WARNING,
@@ -224,11 +213,6 @@ export const useNotificationStore = defineStore('notification', {
       });
     },
 
-    /**
-     * Convenience method for showing info notifications
-     * @param message Info message
-     * @param options Additional notification options
-     */
     info(message: string, options?: Partial<Omit<Notification, 'id' | 'type' | 'message'>>) {
       this.addNotification({
         type: NOTIFICATION_TYPES.INFO,

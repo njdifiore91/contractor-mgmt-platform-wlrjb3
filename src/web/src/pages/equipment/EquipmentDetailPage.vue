@@ -234,7 +234,7 @@ import { useQuasar } from 'quasar';
 import { useErrorBoundary } from '@vueuse/core';
 import { Equipment, EquipmentAssignment } from '../../models/equipment.model';
 import { useEquipment } from '../../composables/useEquipment';
-import { useAuditLog } from '@company/audit-log';
+import { useAuditLog } from '@/composables/useAuditLog';
 
 export default defineComponent({
   name: 'EquipmentDetailPage',

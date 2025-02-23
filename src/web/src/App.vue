@@ -29,7 +29,7 @@
 import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useRouter, useRoute } from 'vue-router';
-import { usePerformance } from '@vueuse/core';
+import { useNow } from '@vueuse/core';
 import DefaultLayout from './layouts/DefaultLayout.vue';
 import AuthLayout from './layouts/AuthLayout.vue';
 import AdminLayout from './layouts/AdminLayout.vue';
@@ -54,8 +54,16 @@ export default defineComponent({
     const $q = useQuasar();
     const router = useRouter();
     const route = useRoute();
-    const { isAuthenticated, currentUser, validateSession, handleSecurityEvent } = useAuth();
-    const { measure } = usePerformance();
+    const { isAuthenticated, currentUser, error, checkAuthStatus, handleSecurityEvent } = useAuth();
+    const now = useNow();
+
+    // Custom performance measurement
+    const measure = async (label: string) => {
+      const start = performance.now();
+      await Promise.resolve();
+      const end = performance.now();
+      return end - start;
+    };
 
     // Reactive state
     const layoutReady = ref(false);
@@ -78,10 +86,12 @@ export default defineComponent({
       }
 
       // Admin routes require admin role
-      if (routeMeta.requiresAdmin && 
-          !currentUser.value?.userRoles.some(role => role.roleId === 'Admin')) {
-        router.push('/dashboard');
-        return DefaultLayout;
+      if (routeMeta.requiresAdmin) {
+        if (!currentUser.value?.userRoles.some(role => role.roleId === 'Admin')) {
+          router.push('/dashboard');
+          return DefaultLayout;
+        }
+        return AdminLayout;
       }
 
       // Layout mapping based on route metadata
@@ -99,7 +109,7 @@ export default defineComponent({
     const initializeSecurityMonitoring = () => {
       securityCheckInterval.value = window.setInterval(async () => {
         try {
-          const isValid = await validateSession();
+          const isValid = await checkAuthStatus();
           if (!isValid) {
             handleSecurityEvent({
               type: 'SESSION_INVALID',
@@ -154,8 +164,13 @@ export default defineComponent({
         $q.dark.set(isDarkMode.value);
 
         // Initialize security
-        await validateSession();
-        initializeSecurityMonitoring();
+        const app = (window as any).vueApp;
+        if (app?.config?.globalProperties?.$security) {
+          await app.config.globalProperties.$security.validateSession();
+          initializeSecurityMonitoring();
+        } else {
+          console.warn('Security validation not available');
+        }
 
         layoutReady.value = true;
       } catch (error) {

@@ -1,10 +1,10 @@
 import { defineConfig } from 'cypress';
 
 // Environment variables with defaults
-const API_URL = process.env.VITE_API_URL || 'http://localhost:5000/api/v1';
-const AUTH_URL = process.env.VITE_AUTH_URL || 'http://localhost:5000/auth';
-const TEST_TIMEOUT = Number(process.env.TEST_TIMEOUT || 10000);
-const RETRY_COUNT = Number(process.env.RETRY_COUNT || 2);
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const AUTH_URL = import.meta.env.VITE_AUTH_URL || 'http://localhost:5000/auth';
+const TEST_TIMEOUT = Number(import.meta.env.TEST_TIMEOUT || 10000);
+const RETRY_COUNT = Number(import.meta.env.RETRY_COUNT || 2);
 
 export default defineConfig({
   // E2E Testing Configuration

@@ -4,31 +4,44 @@ import { createPinia } from 'pinia'; // ^2.0.0
 import { ApplicationInsights } from '@microsoft/applicationinsights-web'; // ^2.8.0
 import { PublicClientApplication } from '@azure/msal-browser'; // ^2.32.0
 
-// Import Quasar styles and icons
-import '@quasar/extras/material-icons/material-icons.css'; // ^1.16.0
-import 'quasar/dist/quasar.css'; // ^2.0.0
+// Import Quasar css
+import '@quasar/extras/material-icons/material-icons.css';
+import 'quasar/dist/quasar.css';
+
+// Import TailwindCSS styles
+import '@/assets/styles/tailwind.css';
 
 // Import root component and router
 import App from './App.vue';
 import router from './router';
+import { setupVue } from './plugins/vue';
 
-// Initialize Application Insights
-const appInsights = new ApplicationInsights({
-  config: {
-    connectionString: process.env.VUE_APP_APPINSIGHTS_CONNECTION_STRING,
-    enableAutoRouteTracking: true,
-    enableCorsCorrelation: true,
-    enableRequestHeaderTracking: true,
-    enableResponseHeaderTracking: true
-  }
-});
+// Initialize Application Insights if connection string is available
+const appInsightsConnectionString = import.meta.env.VITE_APP_APPINSIGHTS_CONNECTION_STRING;
+
+let appInsights: ApplicationInsights | null = null;
+if (appInsightsConnectionString) {
+    appInsights = new ApplicationInsights({
+        config: {
+            connectionString: appInsightsConnectionString,
+            enableAutoRouteTracking: true,
+            enableCorsCorrelation: true,
+            enableRequestHeaderTracking: true,
+            enableResponseHeaderTracking: true
+        }
+    });
+    appInsights.loadAppInsights();
+    appInsights.trackPageView();
+} else if (import.meta.env.DEV) {
+    console.info('Application Insights connection string not provided in development mode. Telemetry disabled.');
+}
 
 // Initialize MSAL for Azure AD B2C
 const msalConfig = {
   auth: {
-    clientId: process.env.VUE_APP_AZURE_CLIENT_ID,
-    authority: process.env.VUE_APP_AZURE_AUTHORITY,
-    knownAuthorities: [process.env.VUE_APP_AZURE_KNOWN_AUTHORITY],
+    clientId: import.meta.env.VITE_APP_AZURE_CLIENT_ID || '',
+    authority: import.meta.env.VITE_APP_AZURE_AUTHORITY || '',
+    knownAuthorities: [import.meta.env.VITE_APP_AZURE_KNOWN_AUTHORITY || ''],
     redirectUri: window.location.origin
   },
   cache: {
@@ -43,6 +56,9 @@ const msalInstance = new PublicClientApplication(msalConfig);
 const app = createApp(App);
 const pinia = createPinia();
 
+// Make app instance available globally
+(window as any).vueApp = app;
+
 // Configure Quasar framework
 function configureQuasar(app: any) {
   app.use(Quasar, {
@@ -53,13 +69,14 @@ function configureQuasar(app: any) {
     },
     config: {
       brand: {
-        primary: '#2196F3',
-        secondary: '#607D8B',
-        accent: '#FF4081',
-        positive: '#4CAF50',
-        negative: '#F44336',
-        info: '#2196F3',
-        warning: '#FF9800'
+        primary: '#1976D2',
+        secondary: '#26A69A',
+        accent: '#9C27B0',
+        dark: '#1D1D1D',
+        positive: '#21BA45',
+        negative: '#C10015',
+        info: '#31CCEC',
+        warning: '#F2C037'
       },
       notify: {
         position: 'top-right',
@@ -80,12 +97,10 @@ function setupSecurity(app: any) {
     validateSession: async () => {
       try {
         const account = msalInstance.getAllAccounts()[0];
-        if (!account) {
-          throw new Error('No active session');
-        }
-        return true;
+        // Don't throw error, just return false if no session
+        return !!account;
       } catch (error) {
-        console.error('Session validation failed:', error);
+        console.warn('Session validation check:', error);
         return false;
       }
     },
@@ -95,32 +110,60 @@ function setupSecurity(app: any) {
           app.config.globalProperties.$security.validateSession();
         }
       });
+    },
+    initializeAuth: async () => {
+      try {
+        // Try to initialize MSAL silently
+        const silentRequest = {
+          scopes: ['openid', 'profile', 'email'],
+          account: msalInstance.getAllAccounts()[0],
+          forceRefresh: false
+        };
+        
+        if (silentRequest.account) {
+          await msalInstance.acquireTokenSilent(silentRequest);
+          return true;
+        }
+        return false;
+      } catch (error) {
+        console.warn('Auth initialization failed:', error);
+        return false;
+      }
     }
   };
 }
 
 // Configure performance monitoring
 function setupPerformanceMonitoring(app: any) {
-  appInsights.loadAppInsights();
-  appInsights.trackPageView();
-
-  app.config.globalProperties.$performance = {
-    trackEvent: (name: string, properties?: { [key: string]: any }) => {
-      appInsights.trackEvent({ name, properties });
-    },
-    trackMetric: (name: string, value: number) => {
-      appInsights.trackMetric({ name, average: value });
-    },
-    trackException: (error: Error) => {
-      appInsights.trackException({ error });
+    if (appInsights) {
+        app.config.globalProperties.$performance = {
+            trackEvent: (name: string, properties?: { [key: string]: any }) => {
+                appInsights?.trackEvent({ name, properties });
+            },
+            trackMetric: (name: string, value: number) => {
+                appInsights?.trackMetric({ name, average: value });
+            },
+            trackException: (error: Error) => {
+                appInsights?.trackException({ error });
+            }
+        };
+    } else {
+        app.config.globalProperties.$performance = {
+            trackEvent: () => {},
+            trackMetric: () => {},
+            trackException: (error: Error) => {
+                console.error('Error tracked:', error);
+            }
+        };
     }
-  };
 }
 
 // Error handling
 app.config.errorHandler = (err, vm, info) => {
-  console.error('Global error:', err);
-  appInsights.trackException({ error: err as Error });
+    console.error('Global error:', err);
+    if (appInsights) {
+        appInsights.trackException({ error: err as Error });
+    }
 };
 
 // Performance marking for initialization
@@ -148,7 +191,9 @@ async function initializeApp() {
 
   } catch (error) {
     console.error('Application initialization failed:', error);
-    appInsights.trackException({ error: error as Error });
+    if (appInsights) {
+      appInsights.trackException({ error: error as Error });
+    }
   }
 }
 
@@ -157,7 +202,7 @@ initializeApp();
 
 // Cleanup handler
 window.addEventListener('unload', () => {
-  appInsights.flush();
+    appInsights?.flush();
 });
 
 export { app, pinia, appInsights, msalInstance };

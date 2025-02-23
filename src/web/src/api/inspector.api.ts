@@ -4,9 +4,8 @@
  * @version 1.0.0
  */
 
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
+import type { GeographyPoint, Inspector, InspectorStatus, DrugTest, Certification } from '../models/inspector.model';
 import api from '../utils/api.util';
-import { Inspector, InspectorStatus, DrugTest, Certification } from '../models/inspector.model';
 
 /**
  * Interface for paginated response data
@@ -50,7 +49,7 @@ interface CreateDrugTestRequest {
 /**
  * Validates geographic coordinates
  */
-const validateLocation = (location: GeographyPoint): void => {
+function validateLocation(location: GeographyPoint): void {
     if (!location || typeof location.latitude !== 'number' || typeof location.longitude !== 'number') {
         throw new Error('Invalid location coordinates');
     }
@@ -60,168 +59,163 @@ const validateLocation = (location: GeographyPoint): void => {
     if (location.longitude < -180 || location.longitude > 180) {
         throw new Error('Longitude must be between -180 and 180 degrees');
     }
-};
+}
 
-/**
- * Searches for inspectors based on location and other criteria
- */
-export const searchInspectors = async (
-    location: GeographyPoint,
-    radiusInMiles: number,
-    status?: InspectorStatus | null,
-    certifications?: string[],
-    isActive?: boolean | null,
-    pageNumber: number = 1,
-    pageSize: number = 20
-): Promise<PaginatedList<Inspector>> => {
-    // Validate inputs
-    validateLocation(location);
-    
-    if (radiusInMiles < 0 || radiusInMiles > 1000) {
-        throw new Error('Radius must be between 0 and 1000 miles');
+export interface SearchInspectorsParams {
+    location: GeographyPoint;
+    radiusInMiles: number;
+    status?: InspectorStatus;
+    certifications?: string[];
+    isActive?: boolean;
+    pageNumber?: number;
+    pageSize?: number;
+}
+
+export interface SearchInspectorsResponse {
+    inspectors: Inspector[];
+    totalItems: number;
+}
+
+export async function searchInspectors(params: SearchInspectorsParams): Promise<SearchInspectorsResponse> {
+    try {
+        validateLocation(params.location);
+        const response = await api.get('/inspectors/search', { params });
+        return response.data;
+    } catch (error) {
+        console.error('Failed to search inspectors:', error);
+        throw error;
     }
-
-    if (pageNumber < 1) pageNumber = 1;
-    if (pageSize < 1 || pageSize > 100) pageSize = 20;
-
-    const params = {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        radiusInMiles,
-        status: status || undefined,
-        certifications: certifications?.join(','),
-        isActive: isActive === null ? undefined : isActive,
-        pageNumber,
-        pageSize
-    };
-
-    const response = await api.get<PaginatedList<Inspector>>('/api/v1/inspectors/search', { params });
-    return response.data;
-};
+}
 
 /**
  * Retrieves inspector details by ID
  */
-export const getInspectorById = async (id: number): Promise<Inspector> => {
-    if (id <= 0) throw new Error('Invalid inspector ID');
-    
-    const response = await api.get<Inspector>(`/api/v1/inspectors/${id}`);
-    return response.data;
-};
+export async function getInspectorById(id: string): Promise<Inspector> {
+    try {
+        const response = await api.get(`/inspectors/${id}`);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to get inspector ${id}:`, error);
+        throw error;
+    }
+}
 
 /**
  * Creates a new inspector profile
  */
-export const createInspector = async (request: CreateInspectorRequest): Promise<number> => {
-    // Validate request
-    validateLocation(request.location);
-    
-    if (!request.userId || request.userId <= 0) {
-        throw new Error('Invalid user ID');
-    }
-    
-    if (!request.badgeNumber?.trim()) {
-        throw new Error('Badge number is required');
-    }
+export async function createInspector(request: CreateInspectorRequest): Promise<Inspector> {
+    try {
+        validateLocation(request.location);
+        
+        if (!request.userId || request.userId <= 0) {
+            throw new Error('Invalid user ID');
+        }
+        
+        if (!request.badgeNumber?.trim()) {
+            throw new Error('Badge number is required');
+        }
 
-    // Validate certifications
-    if (request.certifications) {
-        request.certifications.forEach(cert => {
-            if (!cert.name || !cert.issuingAuthority || !cert.certificationNumber) {
-                throw new Error('Invalid certification data');
-            }
-            if (new Date(cert.expiryDate) <= new Date()) {
-                throw new Error('Certification expiry date must be in the future');
-            }
-        });
-    }
+        if (request.certifications) {
+            request.certifications.forEach(cert => {
+                if (!cert.name || !cert.issuingAuthority || !cert.certificationNumber) {
+                    throw new Error('Invalid certification data');
+                }
+                if (new Date(cert.expiryDate) <= new Date()) {
+                    throw new Error('Certification expiry date must be in the future');
+                }
+            });
+        }
 
-    const response = await api.post<number>('/api/v1/inspectors', request);
-    return response.data;
-};
+        const response = await api.post('/inspectors', request);
+        return response.data;
+    } catch (error) {
+        console.error('Failed to create inspector:', error);
+        throw error;
+    }
+}
 
 /**
  * Updates an existing inspector's information
  */
-export const updateInspector = async (
-    id: number,
-    request: UpdateInspectorRequest
-): Promise<void> => {
-    if (id <= 0) throw new Error('Invalid inspector ID');
-
-    if (request.location) {
-        validateLocation(request.location);
+export async function updateInspector(id: string, data: UpdateInspectorRequest): Promise<Inspector> {
+    try {
+        if (data.location) {
+            validateLocation(data.location);
+        }
+        const response = await api.put(`/inspectors/${id}`, data);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to update inspector ${id}:`, error);
+        throw error;
     }
-
-    if (request.badgeNumber && !request.badgeNumber.trim()) {
-        throw new Error('Badge number cannot be empty');
-    }
-
-    await api.put(`/api/v1/inspectors/${id}`, request);
-};
+}
 
 /**
  * Mobilizes an inspector for assignment
  */
-export const mobilizeInspector = async (id: number): Promise<void> => {
-    if (id <= 0) throw new Error('Invalid inspector ID');
-
-    await api.post(`/api/v1/inspectors/${id}/mobilize`);
-};
+export async function mobilizeInspector(id: string): Promise<void> {
+    try {
+        await api.post(`/inspectors/${id}/mobilize`);
+    } catch (error) {
+        console.error(`Failed to mobilize inspector ${id}:`, error);
+        throw error;
+    }
+}
 
 /**
  * Records a new drug test for an inspector
  */
-export const createDrugTest = async (
-    inspectorId: number,
-    request: CreateDrugTestRequest
-): Promise<number> => {
-    if (inspectorId <= 0) throw new Error('Invalid inspector ID');
-
-    // Validate test date
-    const testDate = new Date(request.testDate);
-    if (isNaN(testDate.getTime()) || testDate > new Date()) {
-        throw new Error('Invalid test date');
+export async function addDrugTest(inspectorId: string, data: Omit<DrugTest, 'id' | 'inspectorId'>): Promise<DrugTest> {
+    try {
+        const response = await api.post(`/inspectors/${inspectorId}/drug-tests`, data);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to add drug test for inspector ${inspectorId}:`, error);
+        throw error;
     }
-
-    if (!request.result?.trim()) {
-        throw new Error('Test result is required');
-    }
-
-    const response = await api.post<number>(
-        `/api/v1/inspectors/${inspectorId}/drugtests`,
-        request
-    );
-    return response.data;
-};
+}
 
 /**
  * Demobilizes an inspector from active assignment
  */
-export const demobilizeInspector = async (id: number): Promise<void> => {
-    if (id <= 0) throw new Error('Invalid inspector ID');
-
-    await api.post(`/api/v1/inspectors/${id}/demobilize`);
-};
+export async function demobilizeInspector(id: string): Promise<void> {
+    try {
+        await api.post(`/inspectors/${id}/demobilize`);
+    } catch (error) {
+        console.error(`Failed to demobilize inspector ${id}:`, error);
+        throw error;
+    }
+}
 
 /**
  * Updates inspector certifications
  */
-export const updateCertifications = async (
-    inspectorId: number,
-    certifications: Omit<Certification, 'id' | 'inspectorId'>[]
-): Promise<void> => {
-    if (inspectorId <= 0) throw new Error('Invalid inspector ID');
+export async function addCertification(inspectorId: string, data: Omit<Certification, 'id' | 'inspectorId'>): Promise<Certification> {
+    try {
+        const response = await api.post(`/inspectors/${inspectorId}/certifications`, data);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to add certification for inspector ${inspectorId}:`, error);
+        throw error;
+    }
+}
 
-    // Validate certifications
-    certifications.forEach(cert => {
-        if (!cert.name || !cert.issuingAuthority || !cert.certificationNumber) {
-            throw new Error('Invalid certification data');
-        }
-        if (new Date(cert.expiryDate) <= new Date()) {
-            throw new Error('Certification expiry date must be in the future');
-        }
-    });
+export async function updateCertification(inspectorId: string, certificationId: string, data: Partial<Certification>): Promise<Certification> {
+    try {
+        const response = await api.put(`/inspectors/${inspectorId}/certifications/${certificationId}`, data);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to update certification ${certificationId} for inspector ${inspectorId}:`, error);
+        throw error;
+    }
+}
 
-    await api.put(`/api/v1/inspectors/${inspectorId}/certifications`, { certifications });
-};
+export async function getInspectorHistory(inspectorId: string): Promise<any[]> {
+    try {
+        const response = await api.get(`/inspectors/${inspectorId}/history`);
+        return response.data;
+    } catch (error) {
+        console.error(`Failed to get history for inspector ${inspectorId}:`, error);
+        throw error;
+    }
+}
