@@ -1,11 +1,6 @@
 <template>
   <nav class="app-navigation q-pa-md">
-    <QList
-      bordered
-      separator
-      class="responsive-list"
-      :class="{ 'mobile-list': isMobileView }"
-    >
+    <QList bordered separator class="responsive-list" :class="{ 'mobile-list': isMobileView }">
       <QItem
         v-for="item in filteredNavigationItems"
         :key="item.route"
@@ -29,249 +24,236 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { QList, QItem, QIcon, QItemSection } from 'quasar'; // ^2.0.0
-import { useAuthStore } from '@/stores/auth.store';
-import { UserRoleType } from '@/models/user.model';
+  import { ref, computed, onMounted, onUnmounted } from 'vue';
+  import { useRouter, useRoute } from 'vue-router';
+  import { QList, QItem, QIcon, QItemSection } from 'quasar'; // ^2.0.0
+  import { useAuthStore } from '@/stores/auth.store';
+  import { UserRoleType } from '@/models/user.model';
 
-interface Props {
-  layoutType?: 'default' | 'admin';
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  layoutType: 'default'
-});
-
-// Security monitoring constants
-const NAVIGATION_RATE_LIMIT = 10; // Max navigation attempts per minute
-const NAVIGATION_WINDOW = 60 * 1000; // 1 minute window
-const MOBILE_BREAKPOINT = 768;
-
-// Navigation state
-const router = useRouter();
-const route = useRoute();
-const authStore = useAuthStore();
-const navigationAttempts = ref<Date[]>([]);
-const isMobileView = ref(false);
-const touchStartTime = ref<number>(0);
-
-// Default navigation items
-const defaultNavigationItems = [
-  {
-    label: 'Dashboard',
-    icon: 'dashboard',
-    route: '/dashboard',
-    roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.Inspector, UserRoleType.CustomerService]
-  },
-  {
-    label: 'Customers',
-    icon: 'business',
-    route: '/dashboard/customers',
-    roles: [UserRoleType.Admin, UserRoleType.Operations]
-  },
-  {
-    label: 'Inspectors',
-    icon: 'engineering',
-    route: '/dashboard/inspectors',
-    roles: [UserRoleType.Admin, UserRoleType.Operations]
-  },
-  {
-    label: 'Equipment',
-    icon: 'inventory',
-    route: '/dashboard/equipment',
-    roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.Inspector]
-  }
-];
-
-// Admin navigation items
-const adminNavigationItems = [
-  {
-    label: 'Admin Home',
-    icon: 'admin_panel_settings',
-    route: '/admin',
-    roles: [UserRoleType.Admin]
-  },
-  {
-    label: 'Users',
-    icon: 'people',
-    route: '/admin/users',
-    roles: [UserRoleType.Admin]
-  },
-  {
-    label: 'Contractors',
-    icon: 'business',
-    route: '/admin/contractors',
-    roles: [UserRoleType.Admin]
-  },
-  {
-    label: 'Settings',
-    icon: 'settings',
-    route: '/admin/settings',
-    roles: [UserRoleType.Admin]
-  }
-];
-
-// Filtered navigation items based on layout type
-const filteredNavigationItems = computed(() => {
-  const isAdmin = authStore.hasRole(UserRoleType.Admin);
-  
-  if (props.layoutType === 'admin') {
-    return adminNavigationItems;
-  }
-  
-  // For admin users in default layout, show both default and admin items
-  if (isAdmin) {
-    return [...defaultNavigationItems, ...adminNavigationItems];
-  }
-  
-  return defaultNavigationItems;
-});
-
-// Responsive design computations
-const dynamicIconSize = computed(() => isMobileView.value ? 'sm' : 'md');
-
-// Security-enhanced role checking with caching
-const roleAccessCache = new Map<string, boolean>();
-
-function checkAccess(requiredRoles: UserRoleType[]): boolean {
-  const cacheKey = requiredRoles.join(',');
-  if (roleAccessCache.has(cacheKey)) {
-    return roleAccessCache.get(cacheKey)!;
+  interface Props {
+    layoutType?: 'default' | 'admin';
   }
 
-  const hasAccess = requiredRoles.some(role => authStore.hasRole(role));
-  roleAccessCache.set(cacheKey, hasAccess);
-  return hasAccess;
-}
+  const props = withDefaults(defineProps<Props>(), {
+    layoutType: 'default',
+  });
 
-// Navigation rate limiting
-function isNavigationThrottled(): boolean {
-  const now = Date.now();
-  navigationAttempts.value = navigationAttempts.value.filter(
-    attempt => now - attempt.getTime() < NAVIGATION_WINDOW
-  );
-  return navigationAttempts.value.length >= NAVIGATION_RATE_LIMIT;
-}
+  // Security monitoring constants
+  const NAVIGATION_RATE_LIMIT = 10; // Max navigation attempts per minute
+  const NAVIGATION_WINDOW = 60 * 1000; // 1 minute window
+  const MOBILE_BREAKPOINT = 768;
 
-// Active route tracking
-function isActiveRoute(path: string): boolean {
-  return route.path === path;
-}
+  // Navigation state
+  const router = useRouter();
+  const route = useRoute();
+  const authStore = useAuthStore();
+  const navigationAttempts = ref<Date[]>([]);
+  const isMobileView = ref(false);
+  const touchStartTime = ref<number>(0);
 
-// Navigation handler with security monitoring
-async function handleNavigation(path: string): Promise<void> {
-  if (!authStore.isAuthenticated) {
-    router.push('/login');
-    return;
+  // Update the navigation items structure
+  const navigationItems = [
+    {
+      label: 'Dashboard',
+      icon: 'dashboard',
+      route: '/dashboard',
+      roles: [
+        UserRoleType.Admin,
+        UserRoleType.Operations,
+        UserRoleType.Inspector,
+        UserRoleType.CustomerService,
+      ],
+    },
+    {
+      label: 'Customers',
+      icon: 'business',
+      route: '/dashboard/customers',
+      roles: [UserRoleType.Admin, UserRoleType.Operations],
+    },
+    {
+      label: 'Inspectors',
+      icon: 'engineering',
+      route: '/dashboard/inspectors',
+      roles: [UserRoleType.Admin, UserRoleType.Operations],
+    },
+    {
+      label: 'Equipment',
+      icon: 'inventory',
+      route: '/dashboard/equipment',
+      roles: [UserRoleType.Admin, UserRoleType.Operations, UserRoleType.Inspector],
+    },
+    // Admin items will be shown based on role
+    {
+      label: 'User Management',
+      icon: 'people',
+      route: '/admin/users',
+      roles: [UserRoleType.Admin],
+    },
+    {
+      label: 'System Settings',
+      icon: 'settings',
+      route: '/admin/settings',
+      roles: [UserRoleType.Admin],
+    },
+    {
+      label: 'Audit Logs',
+      icon: 'history',
+      route: '/admin/audit-logs',
+      roles: [UserRoleType.Admin],
+    },
+  ];
+
+  // Update the filtered navigation items computed property
+  const filteredNavigationItems = computed(() => {
+    return navigationItems.filter((item) => {
+      return item.roles.some((role) => authStore.hasRole(role));
+    });
+  });
+
+  // Responsive design computations
+  const dynamicIconSize = computed(() => (isMobileView.value ? 'sm' : 'md'));
+
+  // Security-enhanced role checking with caching
+  const roleAccessCache = new Map<string, boolean>();
+
+  function checkAccess(requiredRoles: UserRoleType[]): boolean {
+    const cacheKey = requiredRoles.join(',');
+    if (roleAccessCache.has(cacheKey)) {
+      return roleAccessCache.get(cacheKey)!;
+    }
+
+    const hasAccess = requiredRoles.some((role) => authStore.hasRole(role));
+    roleAccessCache.set(cacheKey, hasAccess);
+    return hasAccess;
   }
 
-  if (isNavigationThrottled()) {
-    console.warn('Navigation rate limit exceeded');
-    return;
+  // Navigation rate limiting
+  function isNavigationThrottled(): boolean {
+    const now = Date.now();
+    navigationAttempts.value = navigationAttempts.value.filter(
+      (attempt) => now - attempt.getTime() < NAVIGATION_WINDOW
+    );
+    return navigationAttempts.value.length >= NAVIGATION_RATE_LIMIT;
   }
 
-  if (route.path !== path) {
-    navigationAttempts.value.push(new Date());
-    await router.push(path);
-    emit('navigationChanged', path);
+  // Active route tracking
+  function isActiveRoute(path: string): boolean {
+    return route.path === path;
   }
-}
 
-// Touch interaction handlers for mobile
-function handleTouchStart(): void {
-  touchStartTime.value = Date.now();
-}
+  // Navigation handler with security monitoring
+  async function handleNavigation(path: string): Promise<void> {
+    if (!authStore.isAuthenticated) {
+      router.push('/login');
+      return;
+    }
 
-function handleTouchEnd(): void {
-  const touchDuration = Date.now() - touchStartTime.value;
-  if (touchDuration > 500) {
-    // Long press detected - could trigger additional actions
-    return;
+    if (isNavigationThrottled()) {
+      console.warn('Navigation rate limit exceeded');
+      return;
+    }
+
+    if (route.path !== path) {
+      navigationAttempts.value.push(new Date());
+      await router.push(path);
+      emit('navigationChanged', path);
+    }
   }
-}
 
-// Responsive layout handler
-function handleResize(): void {
-  isMobileView.value = window.innerWidth < MOBILE_BREAKPOINT;
-}
+  // Touch interaction handlers for mobile
+  function handleTouchStart(): void {
+    touchStartTime.value = Date.now();
+  }
 
-// Lifecycle hooks
-onMounted(() => {
-  handleResize();
-  window.addEventListener('resize', handleResize);
-});
+  function handleTouchEnd(): void {
+    const touchDuration = Date.now() - touchStartTime.value;
+    if (touchDuration > 500) {
+      // Long press detected - could trigger additional actions
+      return;
+    }
+  }
 
-onUnmounted(() => {
-  window.removeEventListener('resize', handleResize);
-  roleAccessCache.clear();
-});
+  // Responsive layout handler
+  function handleResize(): void {
+    isMobileView.value = window.innerWidth < MOBILE_BREAKPOINT;
+  }
 
-// Event emitter
-const emit = defineEmits<{
-  (event: 'navigationChanged', path: string): void;
-}>();
+  // Lifecycle hooks
+  onMounted(() => {
+    handleResize();
+    window.addEventListener('resize', handleResize);
+  });
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', handleResize);
+    roleAccessCache.clear();
+  });
+
+  // Event emitter
+  const emit = defineEmits<{
+    (event: 'navigationChanged', path: string): void;
+  }>();
 </script>
 
 <style lang="scss">
-.app-navigation {
-  .responsive-list {
-    transition: all 0.3s ease;
-    
-    &.mobile-list {
+  .app-navigation {
+    .responsive-list {
+      transition: all 0.3s ease;
+
+      &.mobile-list {
+        .navigation-item {
+          padding: 8px;
+
+          .navigation-label {
+            font-size: 14px;
+          }
+        }
+      }
+    }
+
+    .navigation-item {
+      transition: background-color 0.2s ease;
+      border-radius: 8px;
+      margin: 4px 8px;
+
+      &:hover {
+        background-color: rgba(var(--q-primary), 0.05);
+      }
+
+      &.q-item--active {
+        background-color: rgba(var(--q-primary), 0.1);
+        color: var(--q-primary);
+        font-weight: 500;
+
+        .q-icon {
+          color: var(--q-primary);
+        }
+      }
+    }
+
+    @media (max-width: $breakpoint-sm) {
+      .navigation-label {
+        font-size: 14px;
+      }
+    }
+
+    @media (min-width: $breakpoint-md) {
+      .navigation-label {
+        font-size: 16px;
+      }
+    }
+
+    // Dark mode support
+    :root[data-theme='dark'] & {
       .navigation-item {
-        padding: 8px;
-        
-        .navigation-label {
-          font-size: 14px;
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        &.q-item--active {
+          background-color: rgba(var(--q-primary), 0.2);
         }
       }
     }
   }
-
-  .navigation-item {
-    transition: background-color 0.2s ease;
-    border-radius: 8px;
-    margin: 4px 8px;
-    
-    &:hover {
-      background-color: rgba(var(--q-primary), 0.05);
-    }
-    
-    &.q-item--active {
-      background-color: rgba(var(--q-primary), 0.1);
-      color: var(--q-primary);
-      font-weight: 500;
-
-      .q-icon {
-        color: var(--q-primary);
-      }
-    }
-  }
-
-  @media (max-width: $breakpoint-sm) {
-    .navigation-label {
-      font-size: 14px;
-    }
-  }
-
-  @media (min-width: $breakpoint-md) {
-    .navigation-label {
-      font-size: 16px;
-    }
-  }
-
-  // Dark mode support
-  :root[data-theme="dark"] & {
-    .navigation-item {
-      &:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-      }
-      
-      &.q-item--active {
-        background-color: rgba(var(--q-primary), 0.2);
-      }
-    }
-  }
-}
 </style>

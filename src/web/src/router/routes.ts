@@ -4,18 +4,18 @@ import type { RouteRecordRaw } from 'vue-router';
 export const auth_routes: RouteRecordRaw[] = [
   {
     path: '/login',
-    redirect: '/auth/login'
+    redirect: '/auth/login',
   },
   {
     path: '/',
-    redirect: '/dashboard'
+    redirect: '/dashboard',
   },
   {
     path: '/auth',
     component: () => import('../layouts/AuthLayout.vue' as any),
     meta: {
       requiresAuth: false,
-      layout: 'auth'
+      layout: 'auth',
     },
     children: [
       {
@@ -26,8 +26,8 @@ export const auth_routes: RouteRecordRaw[] = [
           requiresAuth: false,
           title: 'Login',
           allowedRoles: ['*'],
-          layout: 'auth'
-        }
+          layout: 'auth',
+        },
       },
       {
         path: 'profile',
@@ -37,11 +37,11 @@ export const auth_routes: RouteRecordRaw[] = [
           requiresAuth: true,
           title: 'User Profile',
           allowedRoles: ['Admin', 'Operations', 'Inspector', 'CustomerService'],
-          layout: 'auth'
-        }
-      }
-    ]
-  }
+          layout: 'auth',
+        },
+      },
+    ],
+  },
 ];
 
 // Main application routes
@@ -51,18 +51,18 @@ export const default_routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       layout: 'default',
-      allowedRoles: ['Admin', 'Operations', 'Inspector', 'CustomerService']
+      allowedRoles: ['Admin', 'Operations', 'Inspector', 'CustomerService'],
     },
     children: [
       {
         path: '',
         name: 'dashboard',
-        component: () => import('../pages/dashboard/DashboardPage.vue' as any),
+        component: () => import('../pages/dashboard/DashboardWrapper.vue'),
         meta: {
           requiresAuth: true,
           title: 'Dashboard',
-          layout: 'default'
-        }
+          layout: 'default',
+        },
       },
       {
         path: 'customers',
@@ -75,8 +75,8 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Customers',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
+              layout: 'default',
+            },
           },
           {
             path: ':id',
@@ -86,10 +86,10 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Customer Details',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
-          }
-        ]
+              layout: 'default',
+            },
+          },
+        ],
       },
       {
         path: 'inspectors',
@@ -102,8 +102,8 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Inspectors',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
+              layout: 'default',
+            },
           },
           {
             path: ':id',
@@ -113,10 +113,10 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Inspector Details',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
-          }
-        ]
+              layout: 'default',
+            },
+          },
+        ],
       },
       {
         path: 'equipment',
@@ -129,8 +129,8 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Equipment',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
+              layout: 'default',
+            },
           },
           {
             path: ':id',
@@ -140,44 +140,35 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Equipment Details',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
-          }
-        ]
-      }
-    ]
-  }
+              layout: 'default',
+            },
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // Admin-specific routes
 export const admin_routes: RouteRecordRaw[] = [
   {
     path: '/admin',
-    component: () => import('../layouts/AdminLayout.vue' as any),
     meta: {
       requiresAuth: true,
-      requiresAdmin: true,
+      layout: 'admin',
       allowedRoles: ['Admin'],
-      layout: 'admin'
     },
     children: [
       {
-        path: '',
-        name: 'admin-home',
-        component: () => import('../pages/admin/AdminHomePage.vue' as any),
-        meta: {
-          title: 'Admin Home',
-          allowedRoles: ['Admin']
-        }
-      },
-      {
         path: 'users',
         name: 'user-management',
-        component: () => import('../pages/admin/UserManagementPage.vue' as any),
+        component: () => import('../pages/admin/UserManagementPage.vue'),
         meta: {
+          requiresAuth: true,
           title: 'User Management',
-          allowedRoles: ['Admin']
-        }
+          allowedRoles: ['Admin'],
+          layout: 'admin',
+        },
       },
       {
         path: 'settings',
@@ -185,8 +176,8 @@ export const admin_routes: RouteRecordRaw[] = [
         component: () => import('../pages/admin/SystemSettingsPage.vue' as any),
         meta: {
           title: 'System Settings',
-          allowedRoles: ['Admin']
-        }
+          allowedRoles: ['Admin'],
+        },
       },
       {
         path: 'audit-logs',
@@ -194,11 +185,11 @@ export const admin_routes: RouteRecordRaw[] = [
         component: () => import('../pages/admin/AuditLogsPage.vue' as any),
         meta: {
           title: 'Audit Logs',
-          allowedRoles: ['Admin']
-        }
-      }
-    ]
-  }
+          allowedRoles: ['Admin'],
+        },
+      },
+    ],
+  },
 ];
 
 // Combine all routes
@@ -212,9 +203,9 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('../pages/error/NotFoundPage.vue' as any),
     meta: {
       title: 'Page Not Found',
-      layout: 'default'
-    }
-  }
+      layout: 'default',
+    },
+  },
 ];
 
 export default routes;
