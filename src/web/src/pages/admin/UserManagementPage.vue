@@ -130,9 +130,11 @@
   import type { IUser, UserRole } from '@/models/user.model';
   import { getRoleType, UserRoleType } from '@/models/user.model';
   import { debounce } from 'lodash';
+  import { useEncryption } from '@/composables/useEncryption';
 
   const $q = useQuasar();
   const { users, loading, error, createUser, updateUser, fetchUsers } = useUser();
+  const { decrypt } = useEncryption();
 
   const userDialog = ref(false);
   const editingUser = ref<IUser | null>(null);
@@ -140,11 +142,16 @@
   const columns = [
     { name: 'firstName', label: 'First Name', field: 'firstName', sortable: true },
     { name: 'lastName', label: 'Last Name', field: 'lastName', sortable: true },
-    { name: 'email', label: 'Email', field: 'email', sortable: true },
+    {
+      name: 'email',
+      label: 'Email',
+      field: (row: any) => decrypt(row.email) ?? row.email,
+      sortable: true,
+    },
     {
       name: 'roles',
       label: 'Roles',
-      field: (row: any) => row.userRoles.map((r: any) => r.roleName).join(', '),
+      field: (row: any) => row.userRoles.map((r: any) => r.roles).join(', '),
     },
     { name: 'status', label: 'Status', field: 'isActive' },
     { name: 'actions', label: 'Actions', field: 'actions' },
