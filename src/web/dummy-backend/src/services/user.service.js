@@ -1,16 +1,13 @@
-import { db } from '../db';
-import type { IUser, IUserRole } from '../models/user.model';
-import { UserRoles } from '../models/user.model';
+const { UserRoles } = require('../models/user.model');
 
-// Dummy user data
-const users: IUser[] = [
+const users = [
   {
     id: 1,
     firstName: 'Admin',
     lastName: 'User',
     email: 'admin@example.com',
     isActive: true,
-    userRoles: [{ id: 1, roleId: UserRoles.Admin, userId: 1 }], // Use UserRoles enum
+    userRoles: [{ id: 1, roleId: UserRoles.Admin, userId: 1 }],
     emailPreferences: ['notifications', 'reports'],
     createdAt: '2024-01-01',
     lastLoginAt: '2024-03-15',
@@ -21,21 +18,14 @@ const users: IUser[] = [
     lastName: 'Inspector',
     email: 'john@example.com',
     isActive: true,
-    userRoles: [{ id: 2, roleId: 3, userId: 2 }], // Inspector role
+    userRoles: [{ id: 2, roleId: 3, userId: 2 }],
     createdAt: '2024-02-01',
     lastLoginAt: '2024-03-14',
   },
 ];
 
-export class UserService {
-  async searchUsers(params: {
-    searchTerm?: string;
-    isActive?: boolean;
-    pageNumber: number;
-    pageSize: number;
-    sortBy?: string;
-    sortOrder?: 'asc' | 'desc';
-  }): Promise<{ users: IUser[]; total: number }> {
+class UserService {
+  async searchUsers(params) {
     let filteredUsers = [...users];
 
     if (params.searchTerm) {
@@ -59,12 +49,12 @@ export class UserService {
     return { users: paginatedUsers, total };
   }
 
-  async createUser(userData: Partial<IUser>): Promise<IUser> {
-    const newUser: IUser = {
+  async createUser(userData) {
+    const newUser = {
       id: users.length + 1,
-      firstName: userData.firstName!,
-      lastName: userData.lastName!,
-      email: userData.email!,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      email: userData.email,
       isActive: true,
       userRoles: userData.userRoles || [],
       emailPreferences: userData.emailPreferences || [],
@@ -75,7 +65,7 @@ export class UserService {
     return newUser;
   }
 
-  async updateUser(id: number, updates: Partial<IUser>): Promise<IUser> {
+  async updateUser(id, updates) {
     const index = users.findIndex((u) => u.id === id);
     if (index === -1) throw new Error('User not found');
 
@@ -83,11 +73,12 @@ export class UserService {
     return users[index];
   }
 
-  async deleteUser(id: number): Promise<void> {
+  async deleteUser(id) {
     const index = users.findIndex((u) => u.id === id);
     if (index === -1) throw new Error('User not found');
     users.splice(index, 1);
   }
 }
 
-export const userService = new UserService();
+const userService = new UserService();
+module.exports = { userService };

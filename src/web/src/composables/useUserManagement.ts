@@ -8,7 +8,8 @@ export function useUserManagement() {
   async function fetchUsers(params: any) {
     loading.value = true;
     try {
-      const response = await fetch('/api/v1/users?' + new URLSearchParams(params));
+      const response = await fetch('/api/users?' + new URLSearchParams(params));
+      console.log('Response ', response);
       const data = await response.json();
       return data;
     } catch (err) {

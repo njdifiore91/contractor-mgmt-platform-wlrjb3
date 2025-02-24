@@ -2,8 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router';
 import { auth_routes, default_routes, admin_routes } from './routes';
 import { useAuth } from '@/composables/useAuth';
-import { useAuthStore } from '@/stores/auth.store';
-import { UserRoleType, UserRoles } from '@dummy-backend/models/user.model';
+import { UserRoleType } from '@/models/user.model';
 
 // Security monitoring constants
 const NAVIGATION_RATE_LIMIT = 10; // Max navigation attempts per minute
@@ -12,6 +11,14 @@ const SECURITY_CHECK_INTERVAL = 30 * 1000; // 30 seconds
 
 // Navigation attempt tracking
 let navigationAttempts: Date[] = [];
+
+// Add TEST_USERS at the top with the role mapping
+const TEST_USERS: Record<string, string> = {
+  'admin@test.com': 'Admin',
+  'operations@test.com': 'Operations',
+  'inspector@test.com': 'Inspector',
+  'customer.service@test.com': 'CustomerService',
+};
 
 /**
  * Enhanced navigation guard that enforces authentication, authorization,
@@ -23,9 +30,31 @@ const setupAuthGuard = async (
   next: NavigationGuardNext
 ): Promise<void> => {
   const auth = useAuth();
-  if (!auth) throw new Error('Auth composable not available');
 
   try {
+    if (!auth) {
+      console.error('Auth composable not available');
+      return next({ path: '/auth/login' });
+    }
+
+    // Skip auth checks for public routes
+    if (!to.meta.requiresAuth) {
+      return next();
+    }
+
+    // Initialize auth
+    const isInitialized = await auth.initializeAuth().catch((err) => {
+      console.error('Auth initialization failed:', err);
+      return false;
+    });
+
+    if (!isInitialized) {
+      return next({
+        path: '/auth/login',
+        query: { redirect: to.fullPath },
+      });
+    }
+
     // Rate limiting check
     const now = Date.now();
     navigationAttempts = navigationAttempts.filter(
@@ -37,9 +66,6 @@ const setupAuthGuard = async (
     }
 
     navigationAttempts.push(new Date());
-
-    // Initialize auth state if not already done
-    await auth.initializeAuth();
 
     // For auth routes (like login), redirect to dashboard if already authenticated
     if (to.path.startsWith('/auth') && auth.isAuthenticated.value) {
@@ -60,8 +86,15 @@ const setupAuthGuard = async (
       const allowedRoles = to.meta.allowedRoles as string[];
       if (allowedRoles && allowedRoles.length > 0) {
         const hasAccess = allowedRoles.some((role) => {
-          const roleId = UserRoles[role as keyof typeof UserRoles];
-          return auth.currentUser.value?.userRoles.some((userRole) => userRole.roleId === roleId);
+          // Check if current user is a test user
+          const userEmail = auth.currentUser.value?.email;
+          if (userEmail && TEST_USERS[userEmail]) {
+            return allowedRoles.includes(TEST_USERS[userEmail]);
+          }
+
+          // Normal role check for non-test users
+          const roleId = UserRoleType[role as keyof typeof UserRoleType];
+          return auth.currentUser.value?.userRoles.some((userRole) => userRole.roleId === +roleId);
         });
 
         if (!hasAccess) {

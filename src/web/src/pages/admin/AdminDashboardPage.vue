@@ -141,9 +141,11 @@
   import { ref, computed, onMounted } from 'vue';
   import { useUser } from '@/composables/useUser';
   import { useAuditLog } from '@/composables/useAuditLog';
+  import { useRoute } from 'vue-router';
 
-  const { users } = useUser();
+  const { users, fetchUsers } = useUser();
   const { logs } = useAuditLog();
+  const route = useRoute();
 
   // Stats
   const userStats = ref({
@@ -236,15 +238,27 @@
 
   const fetchDashboardStats = async () => {
     try {
-      userStats.value = {
-        total: users.value.length,
-        active: users.value.filter((user) => user.isActive).length,
-      };
+      // Only fetch users if we're on the dashboard
+      if (route.path === '/admin') {
+        await fetchUsers({
+          pageNumber: 1,
+          pageSize: 10,
+          isActive: true,
+          sortBy: 'lastName',
+          sortOrder: 'asc',
+        });
 
-      // Update pending items
+        userStats.value = {
+          total: users.value.length,
+          active: users.value.filter((user) => user.isActive).length,
+        };
+      }
+
+      // Update pending items with actual data
+      const pendingApprovals = users.value.filter((user) => !user.isActive).length;
       pendingItems.value = {
-        total: 3,
-        details: '2 User Approvals, 1 Equipment Request',
+        total: pendingApprovals,
+        details: `${pendingApprovals} User${pendingApprovals !== 1 ? 's' : ''} Pending Approval`,
       };
 
       // Update equipment stats

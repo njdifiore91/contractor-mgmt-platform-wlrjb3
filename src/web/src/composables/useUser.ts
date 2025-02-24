@@ -14,7 +14,7 @@ import { useUserStore } from '@/stores/user.store';
 
 // Constants
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * Interface for search parameters with proper typing
@@ -39,20 +39,20 @@ export function useUser() {
   const searchParams = ref<ISearchParams>({
     pageNumber: 1,
     pageSize: DEFAULT_PAGE_SIZE,
-    isActive: true
+    isActive: true,
   });
 
   const debouncedSearch = debounce((term: string) => {
     searchParams.value = {
       ...searchParams.value,
-      searchTerm: term
+      searchTerm: term,
     };
     fetchUsers();
   }, SEARCH_DEBOUNCE_MS);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (params?: ISearchParams) => {
     try {
-      await userStore.fetchUsers();
+      await userStore.fetchUsers(params || searchParams.value);
     } catch (err) {
       console.error('Error fetching users:', err);
       throw err;
@@ -112,6 +112,6 @@ export function useUser() {
     getUserById,
     createUser,
     updateUser,
-    validateUserData
+    validateUserData,
   };
 }

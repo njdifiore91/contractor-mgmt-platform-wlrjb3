@@ -9,13 +9,15 @@ import { storeToRefs } from 'pinia'; // ^2.1.0
 import { debounce } from 'lodash'; // ^4.17.21
 import { useEncryption } from '@/composables/useEncryption';
 import type { IUser } from '@/models/user.model';
+import type { ISearchParams } from '@/models/search.model';
 import { useNotificationStore } from './notification.store';
-import { api } from '@/utils/api.util';
+import axios from 'axios';
 
 // Constants
 const DEFAULT_PAGE_SIZE = 20;
 const DEBOUNCE_DELAY = 300;
 const CACHE_DURATION = 300000; // 5 minutes in milliseconds
+const API_BASE_URL = '/api'; // Changed to relative path
 
 // Types
 interface SearchParams {
@@ -57,12 +59,12 @@ export const useUserStore = defineStore('user', {
       searchTerm: '',
       isActive: true,
       sortBy: 'lastName',
-      sortOrder: 'asc'
+      sortOrder: 'asc',
     },
     totalCount: 0,
     selectedUser: null,
     cache: {},
-    pendingUpdates: new Map()
+    pendingUpdates: new Map(),
   }),
 
   getters: {
@@ -71,10 +73,10 @@ export const useUserStore = defineStore('user', {
      */
     decryptedUsers(): IUser[] {
       const { decrypt } = useEncryption();
-      return this.users.map(user => ({
+      return this.users.map((user) => ({
         ...user,
         email: decrypt(user.email),
-        phoneNumber: user.phoneNumber ? decrypt(user.phoneNumber) : null
+        phoneNumber: user.phoneNumber ? decrypt(user.phoneNumber) : null,
       }));
     },
 
@@ -82,7 +84,7 @@ export const useUserStore = defineStore('user', {
      * Returns active users only
      */
     activeUsers(): IUser[] {
-      return this.users.filter(user => user.isActive);
+      return this.users.filter((user) => user.isActive);
     },
 
     /**
@@ -90,14 +92,14 @@ export const useUserStore = defineStore('user', {
      */
     cacheKey(): string {
       return JSON.stringify(this.searchParams);
-    }
+    },
   },
 
   actions: {
     /**
      * Fetches users based on search parameters with caching
      */
-    async fetchUsers(): Promise<void> {
+    async fetchUsers(params: ISearchParams): Promise<void> {
       try {
         this.loading = true;
         const cacheKey = this.cacheKey;
@@ -109,17 +111,35 @@ export const useUserStore = defineStore('user', {
           return;
         }
 
-        const response = await api.get('/users', { params: this.searchParams });
-        this.users = response.data.users;
-        this.totalCount = response.data.totalCount;
+        const response = await axios.get(`${API_BASE_URL}/users`, {
+          params: {
+            pageNumber: params.pageNumber || 1,
+            pageSize: params.pageSize || DEFAULT_PAGE_SIZE,
+            searchTerm: params.searchTerm || '',
+            isActive: params.isActive,
+            sortBy: params.sortBy || 'lastName',
+            sortOrder: params.sortOrder || 'asc',
+          },
+        });
 
-        // Update cache
-        this.cache[cacheKey] = {
-          data: this.users,
-          timestamp: Date.now()
-        };
-      } catch (error) {
-        this.handleError('Error fetching users', error);
+        // Check if response has the expected structure
+        if (response.data && Array.isArray(response.data.users)) {
+          this.users = response.data.users;
+          this.totalCount = response.data.total || 0;
+
+          // Update cache
+          this.cache[cacheKey] = {
+            data: this.users,
+            timestamp: Date.now(),
+          };
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+      } catch (error: any) {
+        const errorMessage =
+          error.response?.data?.message || error.message || 'Failed to fetch users';
+        this.handleError(errorMessage, error);
+        throw error;
       } finally {
         this.loading = false;
       }
@@ -131,7 +151,7 @@ export const useUserStore = defineStore('user', {
     async fetchUserById(id: number): Promise<void> {
       try {
         this.loading = true;
-        const response = await api.get(`/users/${id}`);
+        const response = await axios.get(`${API_BASE_URL}/users/${id}`);
         this.selectedUser = response.data;
       } catch (error) {
         this.handleError(`Error fetching user ${id}`, error);
@@ -147,14 +167,14 @@ export const useUserStore = defineStore('user', {
       try {
         this.loading = true;
         const { encrypt } = useEncryption();
-        
+
         const encryptedData = {
           ...userData,
           email: encrypt(userData.email!),
-          phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber) : null
+          phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber) : null,
         };
 
-        const response = await api.post('/users', encryptedData);
+        const response = await axios.post(`${API_BASE_URL}/users`, encryptedData);
         this.users.unshift(response.data);
         this.invalidateCache();
         useNotificationStore().success('User created successfully');
@@ -171,8 +191,8 @@ export const useUserStore = defineStore('user', {
     async updateUser(id: number, updates: Partial<IUser>): Promise<void> {
       try {
         const { encrypt } = useEncryption();
-        const userIndex = this.users.findIndex(u => u.id === id);
-        
+        const userIndex = this.users.findIndex((u) => u.id === id);
+
         if (userIndex === -1) {
           throw new Error('User not found');
         }
@@ -187,10 +207,10 @@ export const useUserStore = defineStore('user', {
         const encryptedUpdates = {
           ...updates,
           email: updates.email ? encrypt(updates.email) : undefined,
-          phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined
+          phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined,
         };
 
-        await api.put(`/users/${id}`, encryptedUpdates);
+        await axios.put(`${API_BASE_URL}/users/${id}`, encryptedUpdates);
         this.pendingUpdates.delete(id);
         this.invalidateCache();
         useNotificationStore().success('User updated successfully');
@@ -198,7 +218,7 @@ export const useUserStore = defineStore('user', {
         // Rollback on error
         if (this.pendingUpdates.has(id)) {
           const originalData = this.pendingUpdates.get(id)!;
-          const userIndex = this.users.findIndex(u => u.id === id);
+          const userIndex = this.users.findIndex((u) => u.id === id);
           if (userIndex !== -1) {
             this.users[userIndex] = { ...this.users[userIndex], ...originalData };
           }
@@ -213,7 +233,7 @@ export const useUserStore = defineStore('user', {
      */
     setSearchParams: debounce(function (this: any, params: Partial<SearchParams>) {
       this.searchParams = { ...this.searchParams, ...params };
-      this.fetchUsers();
+      this.fetchUsers(this.searchParams as ISearchParams);
     }, DEBOUNCE_DELAY),
 
     /**
@@ -249,6 +269,6 @@ export const useUserStore = defineStore('user', {
       this.totalCount = 0;
       this.cache = {};
       this.pendingUpdates.clear();
-    }
-  }
+    },
+  },
 });

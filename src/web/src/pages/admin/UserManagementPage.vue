@@ -11,6 +11,7 @@
         <div class="row q-col-gutter-md q-mb-md">
           <div class="col-12 col-md-4">
             <q-input
+              v-if="filters.searchEnabled"
               v-model="filters.searchTerm"
               dense
               outlined
@@ -26,13 +27,15 @@
             <q-select
               v-model="filters.status"
               :options="[
-                { label: 'All Users', value: null },
+                // { label: 'All Users', value: null },
                 { label: 'Active', value: true },
                 { label: 'Inactive', value: false },
               ]"
               dense
               outlined
               label="Status"
+              emit-value
+              map-options
               @update:model-value="handleSearch"
             />
           </div>
@@ -45,7 +48,7 @@
           :loading="loading"
           :pagination="pagination"
           row-key="id"
-          @request="onRequest"
+          @request="handleSearch"
         >
           <template #body-cell-actions="props">
             <q-td :props="props">
@@ -101,7 +104,7 @@
               <div class="col-12">
                 <q-select
                   v-model="userForm.roles"
-                  :options="roleOptions"
+                  :options="roleOptions.map((role) => role.name)"
                   label="Roles"
                   multiple
                   :rules="[(val) => val.length > 0 || 'At least one role is required']"
@@ -129,7 +132,7 @@
   import { debounce } from 'lodash';
 
   const $q = useQuasar();
-  const { users, loading, error, createUser, updateUser } = useUser();
+  const { users, loading, error, createUser, updateUser, fetchUsers } = useUser();
 
   const userDialog = ref(false);
   const editingUser = ref<IUser | null>(null);
@@ -141,21 +144,22 @@
     {
       name: 'roles',
       label: 'Roles',
-      field: (row) => row.userRoles.map((r) => r.roleName).join(', '),
+      field: (row: any) => row.userRoles.map((r: any) => r.roleName).join(', '),
     },
     { name: 'status', label: 'Status', field: 'isActive' },
     { name: 'actions', label: 'Actions', field: 'actions' },
   ];
 
-  const filters = reactive({
-    searchTerm: '',
-    status: null as boolean | null,
-  });
-
   const pagination = reactive({
     page: 1,
-    rowsPerPage: 10,
+    rowsPerPage: 20,
     rowsNumber: 0,
+  });
+
+  const filters = reactive({
+    searchTerm: '',
+    status: null,
+    searchEnabled: false,
   });
 
   const roleOptions = [
@@ -165,7 +169,14 @@
     { id: UserRoleType.CustomerService, name: 'Customer Service' },
   ];
 
-  const userForm = ref({
+  interface UserFormData {
+    firstName: string;
+    lastName: string;
+    email: string;
+    roles: number[];
+  }
+
+  const userForm = ref<UserFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -175,12 +186,12 @@
   const handleSearch = async () => {
     try {
       const searchParams = {
-        searchTerm: filters.searchTerm,
-        isActive: filters.status,
+        ...(filters.searchEnabled ? { searchTerm: filters.searchTerm } : {}),
+        isActive: filters.status ?? undefined,
         pageNumber: pagination.page,
         pageSize: pagination.rowsPerPage,
         sortBy: 'lastName',
-        sortOrder: 'asc',
+        sortOrder: 'asc' as const,
       };
 
       await fetchUsers(searchParams);
@@ -208,6 +219,10 @@
       roles: user?.userRoles.map((role) => role.roleId) || [],
     };
     userDialog.value = true;
+  };
+
+  const validateUserData = (data: any) => {
+    return data.firstName && data.lastName && data.email && data.roles.length > 0;
   };
 
   const saveUser = async () => {
@@ -253,7 +268,16 @@
   };
 
   onMounted(async () => {
-    await handleSearch();
+    try {
+      await handleSearch();
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      $q.notify({
+        type: 'negative',
+        message: 'Failed to load users',
+        position: 'top',
+      });
+    }
   });
 
   watch(

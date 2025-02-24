@@ -13,7 +13,6 @@ import {
   type AuthError,
   type MfaChallenge,
 } from '../models/auth.model';
-import { UserRoleType, UserRoles } from '@dummy-backend/models/user.model';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import type { IUser } from '@/models/user.model';

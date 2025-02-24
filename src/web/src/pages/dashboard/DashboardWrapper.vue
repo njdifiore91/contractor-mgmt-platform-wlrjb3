@@ -12,12 +12,14 @@
   import { useAuth } from '@/composables/useAuth';
   import DashboardPage from './DashboardPage.vue';
   import AdminDashboardPage from '../admin/AdminDashboardPage.vue';
-  import { UserRoleType } from '@dummy-backend/models/user.model';
+  import { UserRoleType, getRoleId } from '@/models/user.model';
 
   const { currentUser } = useAuth();
 
   const dashboardComponent = computed(() => {
-    const isAdmin = currentUser.value?.userRoles.some((role) => role.roleId === UserRoleType.Admin);
+    const isAdmin = currentUser.value?.userRoles.some(
+      (role) => role.roleId === getRoleId(UserRoleType.Admin)
+    );
     return isAdmin ? AdminDashboardPage : DashboardPage;
   });
 </script>
