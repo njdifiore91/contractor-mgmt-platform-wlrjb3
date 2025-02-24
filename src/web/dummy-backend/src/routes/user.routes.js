@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, query } = require('express-validator');
+const mongoose = require('mongoose');
 const { validateRequest } = require('../middleware/validate-request');
 const { requireAuth } = require('../middleware/require-auth');
 const { requireAdmin } = require('../middleware/require-admin');
@@ -48,22 +49,36 @@ router.get(
 // Create new user
 router.post('/users', async (req, res) => {
   try {
-    const user = await userService.createUser(req.body);
-    res.status(201).json(user);
+    // Add custom audit information
+    req.auditEntityType = 'USER';
+    req.auditAction = 'create';
+    req.auditEntityId = 'new_user'; // Will be updated with actual ID in response
+
+    const newUser = await userService.createUser(req.body);
+    req.auditEntityId = newUser.id; // Update with actual ID
+    res.status(201).json(newUser);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to create user' });
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Failed to create user' });
   }
 });
 
 // Update user
 router.put('/users/:id', async (req, res) => {
   try {
-    const user = await userService.updateUser(parseInt(req.params.id), req.body);
+    const id = req.params.id;
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
+
+    const user = await userService.updateUser(id, req.body);
     res.json(user);
   } catch (error) {
     if (error.message === 'User not found') {
       res.status(404).json({ message: 'User not found' });
     } else {
+      console.error('Error updating user:', error);
       res.status(500).json({ message: 'Failed to update user' });
     }
   }
@@ -72,12 +87,19 @@ router.put('/users/:id', async (req, res) => {
 // Delete user
 router.delete('/users/:id', async (req, res) => {
   try {
-    await userService.deleteUser(parseInt(req.params.id));
+    const id = req.params.id;
+    // Validate if the ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: 'Invalid user ID format' });
+    }
+
+    await userService.deleteUser(id);
     res.status(204).send();
   } catch (error) {
     if (error.message === 'User not found') {
       res.status(404).json({ message: 'User not found' });
     } else {
+      console.error('Error deleting user:', error);
       res.status(500).json({ message: 'Failed to delete user' });
     }
   }

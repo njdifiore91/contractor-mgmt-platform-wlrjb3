@@ -131,9 +131,10 @@
   import { getRoleType, UserRoleType } from '@/models/user.model';
   import { debounce } from 'lodash';
   import { useEncryption } from '@/composables/useEncryption';
+  import { auditService } from '@/services/audit.service';
 
   const $q = useQuasar();
-  const { users, loading, error, createUser, updateUser, fetchUsers } = useUser();
+  const { users, loading, error, createUser, updateUser, fetchUsers, deleteUser } = useUser();
   const { decrypt } = useEncryption();
 
   const userDialog = ref(false);
@@ -145,13 +146,21 @@
     {
       name: 'email',
       label: 'Email',
-      field: (row: any) => decrypt(row.email) ?? row.email,
+      field: (row: any) => {
+        try {
+          const decrypted = decrypt(row.email);
+          return decrypted || row.email;
+        } catch (error) {
+          console.warn('Failed to decrypt email:', error);
+          return row.email;
+        }
+      },
       sortable: true,
     },
     {
       name: 'roles',
       label: 'Roles',
-      field: (row: any) => row.userRoles.map((r: any) => r.roles).join(', '),
+      field: (row: any) => row.userRoles?.map((r: any) => r.roles).join(', ') || '',
     },
     { name: 'status', label: 'Status', field: 'isActive' },
     { name: 'actions', label: 'Actions', field: 'actions' },
@@ -240,13 +249,22 @@
 
       if (editingUser.value) {
         await updateUser(editingUser.value.id, userForm.value);
+        // Log user update action
+        await auditService.logAction('USER', editingUser.value.id.toString(), 'update', {
+          changes: userForm.value,
+          previousState: editingUser.value,
+        });
         $q.notify({
           type: 'positive',
           message: 'User updated successfully',
           position: 'top',
         });
       } else {
-        await createUser(userForm.value);
+        const newUser = await createUser(userForm.value);
+        // Log user creation action
+        await auditService.logAction('USER', newUser.id.toString(), 'create', {
+          userData: userForm.value,
+        });
         $q.notify({
           type: 'positive',
           message: 'User created successfully',
@@ -266,11 +284,37 @@
   };
 
   const confirmDelete = (user: IUser) => {
-    // Implement delete confirmation logic
-    $q.notify({
-      type: 'negative',
-      message: 'Delete functionality not implemented yet',
-      position: 'top',
+    $q.dialog({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete ${user.firstName} ${user.lastName}?`,
+      cancel: true,
+      persistent: true,
+    }).onOk(async () => {
+      try {
+        // Call the delete API endpoint
+        await deleteUser(user.id);
+
+        // Log the deletion action
+        await auditService.logAction('USER', user.id.toString(), 'delete', {
+          userData: user,
+        });
+
+        // Refresh the user list
+        await handleSearch();
+
+        $q.notify({
+          type: 'positive',
+          message: 'User deleted successfully',
+          position: 'top',
+        });
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        $q.notify({
+          type: 'negative',
+          message: 'Failed to delete user',
+          position: 'top',
+        });
+      }
     });
   };
 

@@ -43,7 +43,7 @@ interface UserState {
   totalCount: number;
   selectedUser: IUser | null;
   cache: Record<string, CacheEntry<IUser[]>>;
-  pendingUpdates: Map<number, Partial<IUser>>;
+  pendingUpdates: Map<string | number, Partial<IUser>>;
 }
 
 // Store implementation
@@ -163,7 +163,7 @@ export const useUserStore = defineStore('user', {
     /**
      * Creates a new user with encrypted PII data
      */
-    async createUser(userData: Partial<IUser>): Promise<void> {
+    async createUser(userData: Partial<IUser>): Promise<IUser> {
       try {
         this.loading = true;
         const { encrypt } = useEncryption();
@@ -175,11 +175,14 @@ export const useUserStore = defineStore('user', {
         };
 
         const response = await axios.post(`${API_BASE_URL}/users`, encryptedData);
-        this.users.unshift(response.data);
+        const newUser = response.data;
+        this.users.unshift(newUser);
         this.invalidateCache();
         useNotificationStore().success('User created successfully');
+        return newUser;
       } catch (error) {
         this.handleError('Error creating user', error);
+        throw error;
       } finally {
         this.loading = false;
       }
@@ -188,7 +191,7 @@ export const useUserStore = defineStore('user', {
     /**
      * Updates user with optimistic updates and rollback
      */
-    async updateUser(id: number, updates: Partial<IUser>): Promise<void> {
+    async updateUser(id: string | number, updates: Partial<IUser>): Promise<void> {
       try {
         const { encrypt } = useEncryption();
         const userIndex = this.users.findIndex((u) => u.id === id);
@@ -210,7 +213,10 @@ export const useUserStore = defineStore('user', {
           phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined,
         };
 
-        await axios.put(`${API_BASE_URL}/users/${id}`, encryptedUpdates);
+        // If id is a number, convert it to the MongoDB ObjectId format
+        const mongoId = typeof id === 'number' ? id.toString() : id;
+        await axios.put(`${API_BASE_URL}/users/${mongoId}`, encryptedUpdates);
+
         this.pendingUpdates.delete(id);
         this.invalidateCache();
         useNotificationStore().success('User updated successfully');
@@ -225,6 +231,7 @@ export const useUserStore = defineStore('user', {
           this.pendingUpdates.delete(id);
         }
         this.handleError('Error updating user', error);
+        throw error;
       }
     },
 
@@ -269,6 +276,30 @@ export const useUserStore = defineStore('user', {
       this.totalCount = 0;
       this.cache = {};
       this.pendingUpdates.clear();
+    },
+
+    /**
+     * Deletes a user with proper error handling and cache invalidation
+     */
+    async deleteUser(id: string | number): Promise<void> {
+      try {
+        this.loading = true;
+        // If id is a number, convert it to the MongoDB ObjectId format
+        const mongoId = typeof id === 'number' ? id.toString() : id;
+        await axios.delete(`${API_BASE_URL}/users/${mongoId}`);
+
+        // Remove user from local state
+        this.users = this.users.filter((user) => user.id !== id);
+
+        // Invalidate cache
+        this.invalidateCache();
+        useNotificationStore().success('User deleted successfully');
+      } catch (error) {
+        this.handleError('Error deleting user', error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
     },
   },
 });

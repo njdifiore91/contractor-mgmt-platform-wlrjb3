@@ -72,20 +72,29 @@ export function useUser() {
     }
   };
 
-  const createUser = async (userData: Partial<IUser>): Promise<void> => {
+  const createUser = async (userData: Partial<IUser>): Promise<IUser> => {
     try {
-      await userStore.createUser(userData);
+      return await userStore.createUser(userData);
     } catch (err) {
       console.error('Error creating user:', err);
       throw err;
     }
   };
 
-  const updateUser = async (id: number, updates: Partial<IUser>): Promise<void> => {
+  const updateUser = async (id: string | number, updates: Partial<IUser>): Promise<void> => {
     try {
       await userStore.updateUser(id, updates);
     } catch (err) {
       console.error('Error updating user:', err);
+      throw err;
+    }
+  };
+
+  const deleteUser = async (id: string | number): Promise<void> => {
+    try {
+      await userStore.deleteUser(id);
+    } catch (err) {
+      console.error('Error deleting user:', err);
       throw err;
     }
   };
@@ -112,6 +121,7 @@ export function useUser() {
     getUserById,
     createUser,
     updateUser,
+    deleteUser,
     validateUserData,
   };
 }

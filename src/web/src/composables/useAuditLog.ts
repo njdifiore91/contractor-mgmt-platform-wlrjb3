@@ -4,6 +4,7 @@
  */
 
 import { ref } from 'vue';
+import axios from 'axios';
 
 interface AuditLogEntry {
   id: string;
@@ -13,58 +14,83 @@ interface AuditLogEntry {
   performedBy: string;
   performedAt: Date;
   details: Record<string, unknown>;
+  ipAddress?: string;
+  userAgent?: string;
+  status: 'success' | 'error';
+}
+
+interface AuditLogFilters {
+  entityType?: string | null;
+  action?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  search?: string | null;
+}
+
+interface AuditLogPagination {
+  page: number;
+  rowsPerPage: number;
+}
+
+interface AuditLogResponse {
+  logs: AuditLogEntry[];
+  total: number;
+}
+
+interface AuditStatistics {
+  actionDistribution: Record<string, number>;
+  entityDistribution: Record<string, number>;
+  timeline: Record<string, number>;
+  topUsers: Array<{ user: string; count: number }>;
+  errorRate: number;
 }
 
 export function useAuditLog() {
   const logs = ref<AuditLogEntry[]>([]);
+  const total = ref<number>(0);
   const isLoading = ref(false);
-
-  const logAccess = async (entityType: string, entityId: string): Promise<void> => {
-    // TODO: Implement actual API call
-    logs.value.push({
-      id: crypto.randomUUID(),
-      entityType,
-      entityId,
-      action: 'access',
-      performedBy: 'current-user',
-      performedAt: new Date(),
-      details: {}
-    });
-  };
-
-  const logAction = async (
-    entityType: string,
-    entityId: string,
-    action: string,
-    details: Record<string, unknown>
-  ): Promise<void> => {
-    // TODO: Implement actual API call
-    logs.value.push({
-      id: crypto.randomUUID(),
-      entityType,
-      entityId,
-      action,
-      performedBy: 'current-user',
-      performedAt: new Date(),
-      details
-    });
-  };
+  const error = ref<string | null>(null);
 
   const fetchLogs = async (
-    entityType: string,
-    entityId: string,
-    startDate?: Date,
-    endDate?: Date
-  ): Promise<AuditLogEntry[]> => {
+    filters: AuditLogFilters = {},
+    pagination: AuditLogPagination = { page: 1, rowsPerPage: 20 }
+  ): Promise<void> => {
     try {
       isLoading.value = true;
-      // TODO: Implement actual API call
-      return logs.value.filter(log => 
-        log.entityType === entityType && 
-        log.entityId === entityId &&
-        (!startDate || log.performedAt >= startDate) &&
-        (!endDate || log.performedAt <= endDate)
-      );
+      error.value = null;
+
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        rowsPerPage: pagination.rowsPerPage.toString(),
+        ...(filters.entityType && { entityType: filters.entityType }),
+        ...(filters.action && { action: filters.action }),
+        ...(filters.startDate && { startDate: filters.startDate }),
+        ...(filters.endDate && { endDate: filters.endDate }),
+        ...(filters.search && { search: filters.search }),
+      });
+
+      const response = await axios.get<AuditLogResponse>(`/api/audit/logs?${params}`);
+      logs.value = response.data.logs;
+      total.value = response.data.total;
+    } catch (err) {
+      console.error('Error fetching audit logs:', err);
+      error.value = 'Failed to fetch audit logs';
+      throw err;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const fetchStatistics = async (): Promise<AuditStatistics> => {
+    try {
+      isLoading.value = true;
+      error.value = null;
+      const response = await axios.get<AuditStatistics>('/api/audit/statistics');
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching audit statistics:', err);
+      error.value = 'Failed to fetch audit statistics';
+      throw err;
     } finally {
       isLoading.value = false;
     }
@@ -72,9 +98,10 @@ export function useAuditLog() {
 
   return {
     logs,
+    total,
     isLoading,
-    logAccess,
-    logAction,
-    fetchLogs
+    error,
+    fetchLogs,
+    fetchStatistics,
   };
-} 
+}

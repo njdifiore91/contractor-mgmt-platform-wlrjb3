@@ -1,15 +1,22 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const connectDB = require('./config/database');
 const userRoutes = require('./routes/user.routes');
+const auditRoutes = require('./routes/audit.routes');
+const auditLogger = require('./middleware/audit-logger');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 8000;
 
+// Connect to MongoDB
+connectDB();
+
 // Middleware
 app.use(
   cors({
-    origin: 'http://localhost:8080', // Allow frontend dev server
+    origin: ['http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'], // Allow multiple frontend dev servers
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-user-email'],
@@ -18,8 +25,12 @@ app.use(
 app.use(express.json());
 app.use(morgan('dev'));
 
+// Add audit logging middleware after auth but before routes
+app.use(auditLogger);
+
 // Register routes
 app.use('/api', userRoutes.router);
+app.use('/api/audit', auditRoutes);
 
 // Dummy data
 const equipmentData = [
@@ -94,6 +105,11 @@ app.get('/api/equipment/assignments', (req, res) => {
 });
 
 app.post('/api/equipment/assignments', (req, res) => {
+  // Add custom audit information
+  req.auditEntityType = 'EQUIPMENT';
+  req.auditAction = 'assign';
+  req.auditEntityId = req.body.equipmentId;
+
   const newAssignment = {
     id: assignments.length + 1,
     ...req.body,
@@ -127,6 +143,12 @@ app.put('/api/equipment/assignments/:id/return', (req, res) => {
   }
 
   res.json(assignment);
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
 // Start server with error handling
