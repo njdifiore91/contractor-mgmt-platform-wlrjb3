@@ -134,7 +134,7 @@ import { defineComponent, ref, onMounted } from 'vue';
 import { useQuasar } from '@quasar/vue'; // v2.x
 import { useI18n } from 'vue-i18n'; // v9.x
 import sanitizeHtml from 'sanitize-html'; // v2.x
-import { IContact } from '../../models/customer.model';
+import type { IContact } from '../../models/customer.model';
 import { createContact } from '../../api/customer.api';
 import { validateEmail, validatePhoneNumber, validateRequired } from '../../utils/validation.util';
 

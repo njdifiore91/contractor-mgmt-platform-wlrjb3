@@ -1,9 +1,9 @@
 <template>
   <div class="search-bar" role="search">
     <QInput
-      v-model="searchText"
-      :placeholder="t(props.placeholder)"
-      :loading="props.loading"
+      v-model="searchQuery"
+      :placeholder="placeholder || t('search.placeholder')"
+      :loading="loading"
       :error="!!errorMessage"
       :error-message="errorMessage"
       outlined
@@ -11,18 +11,18 @@
       clearable
       :aria-label="t('search.label')"
       @update:model-value="handleSearch"
-      @clear="clearSearch"
+      @clear="handleClear"
     >
       <template #prepend>
         <QIcon name="search" role="img" :aria-label="t('search.icon')" />
       </template>
-      <template #append v-if="searchText">
+      <template #append v-if="searchQuery">
         <QIcon 
           name="clear" 
           class="cursor-pointer"
           role="button"
           :aria-label="t('search.clear')"
-          @click="clearSearch"
+          @click="handleClear"
         />
       </template>
     </QInput>
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 // Vue 3.x Composition API
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, onUnmounted } from 'vue';
 
 // Quasar v2.0.0 Components
 import { QInput, QIcon } from 'quasar';
@@ -68,7 +68,7 @@ const emit = defineEmits<{
 }>();
 
 // Component state
-const searchText = ref(props.initialValue);
+const searchQuery = ref(props.initialValue);
 const errorMessage = ref('');
 const { t } = useI18n();
 
@@ -128,9 +128,9 @@ const debouncedSearch = debounce((value: string) => {
  * @param value - New search text value
  */
 const handleSearch = (value: string): void => {
-  searchText.value = value;
+  searchQuery.value = value;
   if (!value) {
-    clearSearch();
+    handleClear();
     return;
   }
   debouncedSearch(value);
@@ -139,8 +139,8 @@ const handleSearch = (value: string): void => {
 /**
  * Clears the search input and resets state
  */
-const clearSearch = (): void => {
-  searchText.value = '';
+const handleClear = (): void => {
+  searchQuery.value = '';
   errorMessage.value = '';
   debouncedSearch.cancel();
   emit('clear');
@@ -155,6 +155,12 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   debouncedSearch.cancel();
+});
+
+onUnmounted(() => {
+  if (debouncedSearch.cancel) {
+    debouncedSearch.cancel();
+  }
 });
 </script>
 

@@ -89,46 +89,28 @@ export const useInspectorStore = defineStore('inspector', {
 
     actions: {
         async searchInspectors(
-            location: GeographyPoint,
-            radius: number,
-            status: InspectorStatus | null,
+            location: GeographyPoint | null,
+            radius: number | null,
+            status: InspectorStatus[] | null,
             certifications: string[],
-            includeUnavailable = false
+            includeUnavailable = null
         ) {
             this.loading = true;
             try {
-                // TODO: Implement actual API call
-                // For now, return mock data
-                this.inspectors = [
-                    {
-                        id: 1,
-                        userId: 1,
-                        status: InspectorStatus.Mobilized,
-                        location: { latitude: 0, longitude: 0 },
-                        badgeNumber: 'B001',
-                        certifications: [],
-                        drugTests: [],
-                        lastMobilizedDate: new Date(),
-                        lastDrugTestDate: null,
-                        isActive: true,
-                        createdAt: new Date(),
-                        modifiedAt: null
-                    },
-                    {
-                        id: 2,
-                        userId: 2,
-                        status: InspectorStatus.Available,
-                        location: { latitude: 0, longitude: 0 },
-                        badgeNumber: 'B002',
-                        certifications: [],
-                        drugTests: [],
-                        lastMobilizedDate: null,
-                        lastDrugTestDate: null,
-                        isActive: true,
-                        createdAt: new Date(),
-                        modifiedAt: null
-                    }
-                ];
+                const response = await searchInspectors({
+                    location: location ? {
+                        latitude: location.latitude,
+                        longitude: location.longitude
+                    } : null,
+                    radiusInMiles: radius || undefined,
+                    status: status || undefined,
+                    certifications,
+                    isActive: includeUnavailable === false ? true : undefined
+                });
+
+                this.inspectors = response.items;
+                this.totalItems = response.totalCount;
+                return response;
             } catch (error) {
                 console.error('Failed to search inspectors:', error);
                 this.error = error instanceof Error ? error.message : 'An unknown error occurred';

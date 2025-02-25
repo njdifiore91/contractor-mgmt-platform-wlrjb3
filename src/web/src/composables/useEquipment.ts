@@ -7,11 +7,8 @@
 import { ref, computed, onMounted, watchEffect } from 'vue'; // v3.x
 import { useQuasar } from 'quasar'; // v2.x
 import { debounce } from 'lodash'; // v4.x
-import { 
-  Equipment, 
-  EquipmentAssignment, 
-  EquipmentType, 
-} from '../models/equipment.model';
+import { Equipment, type EquipmentTypeValue } from '../models/equipment.model';
+import type { EquipmentAssignment } from '../models/equipment-types';
 import { useEquipmentStore } from '../stores/equipment.store';
 
 // Constants for equipment management
@@ -34,14 +31,19 @@ export function useEquipment() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const filters = ref({
-    type: null as EquipmentType | null,
+    type: null as EquipmentTypeValue | null,
     isAvailable: null as boolean | null,
     search: '' as string
   });
   const selectedEquipmentId = ref<number | null>(null);
 
-  // Computed properties
-  const equipment = computed(() => equipmentStore.equipment);
+  // Computed properties from store
+  const equipment = computed(() => {
+    if (equipmentStore.selectedEquipment) {
+      return [equipmentStore.selectedEquipment];
+    }
+    return equipmentStore.equipment;
+  });
   const selectedEquipment = computed(() => equipmentStore.selectedEquipment);
   
   const availableEquipment = computed(() => 
@@ -89,101 +91,30 @@ export function useEquipment() {
   // Debounced fetch implementation
   const debouncedFetch = debounce(async () => {
     try {
-      await equipmentStore.loadEquipment(true);
+      await equipmentStore.loadEquipment();
     } catch (err) {
       handleError(err);
     }
   }, DEBOUNCE_DELAY);
 
   /**
-   * Fetches equipment list with filtering and error handling
-   * @param forceRefresh Forces a refresh bypassing cache
+   * Fetches equipment list or single equipment details
+   * @param equipmentIdOrForceRefresh Optional ID to fetch a single equipment or boolean to force refresh
    */
-  const fetchEquipment = async (forceRefresh = false) => {
+  const fetchEquipment = async (equipmentIdOrForceRefresh?: number | boolean) => {
     loading.value = true;
     error.value = null;
 
     try {
-      await equipmentStore.loadEquipment(forceRefresh);
+      if (typeof equipmentIdOrForceRefresh === 'number') {
+        // Fetch single equipment details
+        await equipmentStore.selectEquipment(equipmentIdOrForceRefresh);
+      } else {
+        // Fetch equipment list
+        await equipmentStore.loadEquipment(equipmentIdOrForceRefresh || false);
+      }
     } catch (err) {
       handleError(err);
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  /**
-   * Assigns equipment to an inspector with validation and optimistic updates
-   * @param assignment Equipment assignment details
-   */
-  const assignEquipment = async (assignment: Omit<EquipmentAssignment, 'id'>): Promise<boolean> => {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      await equipmentStore.assignEquipmentToInspector(assignment);
-      $q.notify({
-        type: 'positive',
-        message: 'Equipment assigned successfully'
-      });
-      return true;
-    } catch (err) {
-      handleError(err);
-      return false;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  /**
-   * Processes equipment return with condition assessment
-   * @param assignmentId Assignment identifier
-   * @param returnData Return condition and notes
-   */
-  const returnEquipment = async (
-    assignmentId: number,
-    returnData: { returnCondition: string; notes?: string }
-  ): Promise<boolean> => {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      await equipmentStore.processEquipmentReturn(assignmentId, returnData);
-      $q.notify({
-        type: 'positive',
-        message: 'Equipment return processed successfully'
-      });
-      return true;
-    } catch (err) {
-      handleError(err);
-      return false;
-    } finally {
-      loading.value = false;
-    }
-  };
-
-  /**
-   * Updates equipment details with optimistic updates
-   * @param id Equipment identifier
-   * @param updates Equipment updates
-   */
-  const updateEquipment = async (
-    id: number,
-    updates: Partial<Equipment>
-  ): Promise<boolean> => {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      await equipmentStore.updateExistingEquipment(id, updates);
-      $q.notify({
-        type: 'positive',
-        message: 'Equipment updated successfully'
-      });
-      return true;
-    } catch (err) {
-      handleError(err);
-      return false;
     } finally {
       loading.value = false;
     }
@@ -191,14 +122,14 @@ export function useEquipment() {
 
   /**
    * Handles errors with user notifications
-   * @param err Error object
    */
   const handleError = (err: any) => {
-    error.value = err.message || 'An unexpected error occurred';
+    const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+    error.value = errorMessage;
     $q.notify({
       type: 'negative',
-      message: error.value as string,
-      timeout: 5000
+      message: errorMessage,
+      position: 'top'
     });
   };
 
@@ -241,9 +172,9 @@ export function useEquipment() {
 
     // Methods
     fetchEquipment,
-    assignEquipment,
-    returnEquipment,
-    updateEquipment,
+    assignEquipment: equipmentStore.assignEquipmentToInspector,
+    returnEquipment: equipmentStore.processEquipmentReturn,
+    updateEquipment: equipmentStore.updateExistingEquipment,
     
     // Filter helpers
     applyFilters

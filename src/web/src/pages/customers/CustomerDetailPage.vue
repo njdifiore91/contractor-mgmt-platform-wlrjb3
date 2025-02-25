@@ -212,7 +212,7 @@ import { useQuasar } from 'quasar';
 import { useCustomer } from '@/composables/useCustomer';
 import { useAuditLog } from '@/composables/useAuditLog';
 import { useSecurityValidation } from '@/composables/useSecurityValidation';
-import { ICustomer, IContact, IContract } from '@/models/customer.model';
+import type { ICustomer, IContact, IContract } from '@/models/customer.model';
 import { formatDate } from '@/utils/date.util';
 
 export default defineComponent({

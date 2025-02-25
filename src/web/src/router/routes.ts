@@ -57,7 +57,7 @@ export const default_routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'dashboard',
-        component: () => import('../pages/dashboard/DashboardWrapper.vue'),
+        component: () => import('../pages/dashboard/RoleBasedDashboard.vue' as any),
         meta: {
           requiresAuth: true,
           title: 'Dashboard',
@@ -77,6 +77,17 @@ export const default_routes: RouteRecordRaw[] = [
               allowedRoles: ['Admin', 'Operations'],
               layout: 'default',
             },
+          },
+          {
+            path: 'create',
+            name: 'customers-create',
+            component: () => import('../pages/customers/CustomerCreatePage.vue' as any),
+            meta: {
+              requiresAuth: true,
+              title: 'Create Customer',
+              allowedRoles: ['Admin', 'Operations'],
+              layout: 'default'
+            }
           },
           {
             path: ':id',
@@ -128,6 +139,17 @@ export const default_routes: RouteRecordRaw[] = [
             meta: {
               requiresAuth: true,
               title: 'Equipment',
+              allowedRoles: ['Admin', 'Operations', 'Inspector'],
+              layout: 'default'
+            }
+          },
+          {
+            path: 'create',
+            name: 'equipment-create',
+            component: () => import('../pages/equipment/EquipmentCreatePage.vue' as any),
+            meta: {
+              requiresAuth: true,
+              title: 'Create Equipment',
               allowedRoles: ['Admin', 'Operations'],
               layout: 'default',
             },
@@ -139,14 +161,14 @@ export const default_routes: RouteRecordRaw[] = [
             meta: {
               requiresAuth: true,
               title: 'Equipment Details',
-              allowedRoles: ['Admin', 'Operations'],
-              layout: 'default',
-            },
-          },
-        ],
-      },
-    ],
-  },
+              allowedRoles: ['Admin', 'Operations', 'Inspector'],
+              layout: 'default'
+            }
+          }
+        ]
+      }
+    ]
+  }
 ];
 
 // Admin-specific routes

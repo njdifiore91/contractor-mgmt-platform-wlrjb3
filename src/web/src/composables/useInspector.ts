@@ -1,8 +1,8 @@
 import { ref, computed, onMounted, watchEffect } from 'vue'; // ^3.3.0
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
+import type { GeographyPoint } from '../types/spatial'; // v7.12.2
 import { debounce } from 'lodash'; // ^4.17.21
 import { useInspectorStore } from '../stores/inspector.store';
-import { Inspector, InspectorStatus, Certification, DrugTest } from '../models/inspector.model';
+import type { Inspector, InspectorStatus, Certification, DrugTest } from '../models/inspector.model';
 
 // Constants for search configuration
 const DEFAULT_SEARCH_RADIUS = 50;
