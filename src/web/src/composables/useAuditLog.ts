@@ -3,7 +3,7 @@
  * @version 1.0.0
  */
 
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import axios from 'axios';
 
 interface AuditLogEntry {
@@ -81,19 +81,59 @@ export function useAuditLog() {
     }
   };
 
+  // Computed statistics from logs
+  const statistics = computed<AuditStatistics>(() => {
+    // Action type distribution
+    const actionDistribution = logs.value.reduce((acc, log) => {
+      acc[log.action] = (acc[log.action] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Entity type distribution
+    const entityDistribution = logs.value.reduce((acc, log) => {
+      acc[log.entityType] = (acc[log.entityType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Activity timeline (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const timeline = logs.value
+      .filter((log) => new Date(log.performedAt) >= sevenDaysAgo)
+      .reduce((acc, log) => {
+        const date = new Date(log.performedAt).toISOString().split('T')[0];
+        acc[date] = (acc[date] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+    // Top users
+    const userCounts = logs.value.reduce((acc, log) => {
+      acc[log.performedBy] = (acc[log.performedBy] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const topUsers = Object.entries(userCounts)
+      .map(([user, count]) => ({ user, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+
+    // Error rate
+    const errorCount = logs.value.filter((log) => log.status === 'error').length;
+    const errorRate = logs.value.length ? (errorCount / logs.value.length) * 100 : 0;
+
+    return {
+      actionDistribution,
+      entityDistribution,
+      timeline,
+      topUsers,
+      errorRate,
+    };
+  });
+
+  // Replace API call with computed statistics
   const fetchStatistics = async (): Promise<AuditStatistics> => {
-    try {
-      isLoading.value = true;
-      error.value = null;
-      const response = await axios.get<AuditStatistics>('/api/audit/statistics');
-      return response.data;
-    } catch (err) {
-      console.error('Error fetching audit statistics:', err);
-      error.value = 'Failed to fetch audit statistics';
-      throw err;
-    } finally {
-      isLoading.value = false;
-    }
+    return statistics.value;
   };
 
   return {
@@ -103,5 +143,6 @@ export function useAuditLog() {
     error,
     fetchLogs,
     fetchStatistics,
+    statistics, // Export computed statistics
   };
 }

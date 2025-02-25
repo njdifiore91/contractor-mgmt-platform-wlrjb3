@@ -92,7 +92,20 @@ export function useUser() {
 
   const deleteUser = async (id: string | number): Promise<void> => {
     try {
+      // Find the user in the store before deletion
+      const userToDelete = users.value.find((user) => user.id === id);
+      if (!userToDelete) {
+        throw new Error('User not found');
+      }
+
+      // Call the API to delete the user
       await userStore.deleteUser(id);
+
+      // Remove the user from the local state
+      users.value = users.value.filter((user) => user.id !== id);
+
+      // Invalidate any cached data
+      userStore.invalidateCache();
     } catch (err) {
       console.error('Error deleting user:', err);
       throw err;

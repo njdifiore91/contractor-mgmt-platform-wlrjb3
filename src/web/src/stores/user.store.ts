@@ -46,6 +46,45 @@ interface UserState {
   pendingUpdates: Map<string | number, Partial<IUser>>;
 }
 
+const { encrypt } = useEncryption();
+
+// Dummy user data
+const dummyUsers: IUser[] = [
+  {
+    id: 1,
+    firstName: 'John',
+    lastName: 'Doe',
+    email: encrypt('john.doe@example.com'),
+    isActive: true,
+    userRoles: [{ roleId: 1 }], // Admin
+    emailPreferences: ['daily', 'weekly'],
+    createdAt: new Date('2024-01-01'),
+    lastLoginAt: new Date('2024-03-15'),
+  },
+  {
+    id: 2,
+    firstName: 'Jane',
+    lastName: 'Smith',
+    email: encrypt('jane.smith@example.com'),
+    isActive: true,
+    userRoles: [{ roleId: 2 }], // Operations
+    emailPreferences: ['weekly'],
+    createdAt: new Date('2024-01-15'),
+    lastLoginAt: new Date('2024-03-14'),
+  },
+  {
+    id: 3,
+    firstName: 'Mike',
+    lastName: 'Johnson',
+    email: encrypt('mike.johnson@example.com'),
+    isActive: false,
+    userRoles: [{ roleId: 3 }], // Inspector
+    emailPreferences: ['monthly'],
+    createdAt: new Date('2024-02-01'),
+    lastLoginAt: new Date('2024-03-10'),
+  },
+];
+
 // Store implementation
 export const useUserStore = defineStore('user', {
   state: (): UserState => ({
@@ -99,46 +138,41 @@ export const useUserStore = defineStore('user', {
     /**
      * Fetches users based on search parameters with caching
      */
-    async fetchUsers(params: ISearchParams): Promise<void> {
+    async fetchUsers(params: any = {}) {
       try {
         this.loading = true;
-        const cacheKey = this.cacheKey;
-        const cachedData = this.cache[cacheKey];
+        this.error = false;
 
-        // Check cache validity
-        if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-          this.users = cachedData.data;
-          return;
+        // Filter and sort dummy data
+        let filteredUsers = [...dummyUsers];
+
+        if (params.searchTerm) {
+          const term = params.searchTerm.toLowerCase();
+          filteredUsers = filteredUsers.filter(
+            (user) =>
+              user.firstName.toLowerCase().includes(term) ||
+              user.lastName.toLowerCase().includes(term)
+          );
         }
 
-        const response = await axios.get(`${API_BASE_URL}/users`, {
-          params: {
-            pageNumber: params.pageNumber || 1,
-            pageSize: params.pageSize || DEFAULT_PAGE_SIZE,
-            searchTerm: params.searchTerm || '',
-            isActive: params.isActive,
-            sortBy: params.sortBy || 'lastName',
-            sortOrder: params.sortOrder || 'asc',
-          },
+        if (typeof params.isActive === 'boolean') {
+          filteredUsers = filteredUsers.filter((user) => user.isActive === params.isActive);
+        }
+
+        // Sort users
+        const sortField = params.sortBy || 'lastName';
+        const sortOrder = params.sortOrder === 'desc' ? -1 : 1;
+        filteredUsers.sort((a, b) => {
+          return sortOrder * a[sortField].localeCompare(b[sortField]);
         });
 
-        // Check if response has the expected structure
-        if (response.data && Array.isArray(response.data.users)) {
-          this.users = response.data.users;
-          this.totalCount = response.data.total || 0;
-
-          // Update cache
-          this.cache[cacheKey] = {
-            data: this.users,
-            timestamp: Date.now(),
-          };
-        } else {
-          throw new Error('Invalid response format from server');
-        }
+        // Apply pagination
+        const start = (params.pageNumber - 1) * params.pageSize;
+        const end = start + params.pageSize;
+        this.users = filteredUsers.slice(start, end);
       } catch (error: any) {
-        const errorMessage =
-          error.response?.data?.message || error.message || 'Failed to fetch users';
-        this.handleError(errorMessage, error);
+        this.error = true;
+        this.errorMessage = error.message;
         throw error;
       } finally {
         this.loading = false;
@@ -166,22 +200,31 @@ export const useUserStore = defineStore('user', {
     async createUser(userData: Partial<IUser>): Promise<IUser> {
       try {
         this.loading = true;
-        const { encrypt } = useEncryption();
+        this.error = false;
 
-        const encryptedData = {
-          ...userData,
-          email: encrypt(userData.email!),
-          phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber) : null,
+        // Create new user with encrypted email
+        const newUser: IUser = {
+          id: dummyUsers.length + 1,
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          email: encrypt(userData.email || ''),
+          isActive: true,
+          userRoles: userData.userRoles || [],
+          emailPreferences: userData.emailPreferences || [],
+          createdAt: new Date(),
+          lastLoginAt: null,
         };
 
-        const response = await axios.post(`${API_BASE_URL}/users`, encryptedData);
-        const newUser = response.data;
-        this.users.unshift(newUser);
-        this.invalidateCache();
-        useNotificationStore().success('User created successfully');
+        // Add to dummy data
+        dummyUsers.push(newUser);
+
+        // Update local state
+        this.users = [...this.users, newUser];
+
         return newUser;
-      } catch (error) {
-        this.handleError('Error creating user', error);
+      } catch (error: any) {
+        this.error = true;
+        this.errorMessage = error.message;
         throw error;
       } finally {
         this.loading = false;
@@ -193,45 +236,36 @@ export const useUserStore = defineStore('user', {
      */
     async updateUser(id: string | number, updates: Partial<IUser>): Promise<void> {
       try {
-        const { encrypt } = useEncryption();
-        const userIndex = this.users.findIndex((u) => u.id === id);
+        this.loading = true;
+        this.error = false;
 
+        // Find user in dummy data
+        const userIndex = dummyUsers.findIndex((user) => user.id === id);
         if (userIndex === -1) {
           throw new Error('User not found');
         }
 
-        // Store original state for rollback
-        this.pendingUpdates.set(id, this.users[userIndex]);
-
-        // Optimistic update
-        this.users[userIndex] = { ...this.users[userIndex], ...updates };
-
-        // Encrypt PII data
-        const encryptedUpdates = {
+        // Update user with encrypted email if provided
+        const updatedUser = {
+          ...dummyUsers[userIndex],
           ...updates,
-          email: updates.email ? encrypt(updates.email) : undefined,
-          phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined,
+          email: updates.email ? encrypt(updates.email) : dummyUsers[userIndex].email,
         };
 
-        // If id is a number, convert it to the MongoDB ObjectId format
-        const mongoId = typeof id === 'number' ? id.toString() : id;
-        await axios.put(`${API_BASE_URL}/users/${mongoId}`, encryptedUpdates);
+        // Update dummy data
+        dummyUsers[userIndex] = updatedUser;
 
-        this.pendingUpdates.delete(id);
-        this.invalidateCache();
-        useNotificationStore().success('User updated successfully');
-      } catch (error) {
-        // Rollback on error
-        if (this.pendingUpdates.has(id)) {
-          const originalData = this.pendingUpdates.get(id)!;
-          const userIndex = this.users.findIndex((u) => u.id === id);
-          if (userIndex !== -1) {
-            this.users[userIndex] = { ...this.users[userIndex], ...originalData };
-          }
-          this.pendingUpdates.delete(id);
+        // Update local state
+        const localIndex = this.users.findIndex((user) => user.id === id);
+        if (localIndex !== -1) {
+          this.users[localIndex] = updatedUser;
         }
-        this.handleError('Error updating user', error);
+      } catch (error: any) {
+        this.error = true;
+        this.errorMessage = error.message;
         throw error;
+      } finally {
+        this.loading = false;
       }
     },
 
@@ -246,12 +280,8 @@ export const useUserStore = defineStore('user', {
     /**
      * Invalidates the cache for a specific key or all cache
      */
-    invalidateCache(cacheKey?: string): void {
-      if (cacheKey) {
-        delete this.cache[cacheKey];
-      } else {
-        this.cache = {};
-      }
+    invalidateCache() {
+      this.cache = {};
     },
 
     /**
@@ -284,18 +314,22 @@ export const useUserStore = defineStore('user', {
     async deleteUser(id: string | number): Promise<void> {
       try {
         this.loading = true;
-        // If id is a number, convert it to the MongoDB ObjectId format
-        const mongoId = typeof id === 'number' ? id.toString() : id;
-        await axios.delete(`${API_BASE_URL}/users/${mongoId}`);
+        this.error = false;
 
-        // Remove user from local state
+        // Find user in dummy data
+        const userIndex = dummyUsers.findIndex((user) => user.id === id);
+        if (userIndex === -1) {
+          throw new Error('User not found');
+        }
+
+        // Remove from dummy data
+        dummyUsers.splice(userIndex, 1);
+
+        // Update local state
         this.users = this.users.filter((user) => user.id !== id);
-
-        // Invalidate cache
-        this.invalidateCache();
-        useNotificationStore().success('User deleted successfully');
-      } catch (error) {
-        this.handleError('Error deleting user', error);
+      } catch (error: any) {
+        this.error = true;
+        this.errorMessage = error.message;
         throw error;
       } finally {
         this.loading = false;
