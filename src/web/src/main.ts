@@ -1,15 +1,49 @@
-import { createApp } from 'vue'; // ^3.3.0
-import { Quasar, Notify, Dialog, Loading } from 'quasar'; // ^2.0.0
-import { createPinia } from 'pinia'; // ^2.0.0
-import { ApplicationInsights } from '@microsoft/applicationinsights-web'; // ^2.8.0
-import { PublicClientApplication } from '@azure/msal-browser'; // ^2.32.0
-
-// Import Quasar css
-import '@quasar/extras/material-icons/material-icons.css';
-import 'quasar/dist/quasar.css';
+import { createApp } from 'vue';
+import { ApplicationInsights } from '@microsoft/applicationinsights-web';
+import { PublicClientApplication } from '@azure/msal-browser';
+import { 
+  Quasar, 
+  Notify, 
+  Loading, 
+  Dialog,
+  QLayout,
+  QHeader,
+  QDrawer,
+  QPageContainer,
+  QPage,
+  QToolbar,
+  QToolbarTitle,
+  QBtn,
+  QIcon,
+  QList,
+  QItem,
+  QItemSection,
+  QItemLabel,
+  QCard,
+  QCardSection,
+  QCardActions,
+  QForm,
+  QInput,
+  QSelect,
+  QSpinner,
+  QTable,
+  QTh,
+  QTr,
+  QTd,
+  QSpace,
+  QSeparator,
+  QChip,
+  QBadge,
+  QDialog,
+  QBtnGroup
+} from 'quasar';
 
 // Import TailwindCSS styles
 import '@/assets/styles/tailwind.css';
+
+// Import Quasar css
+import '@quasar/extras/material-icons/material-icons.css';
+import 'quasar/src/css/index.sass';
 
 // Import root component and router
 import App from './App.vue';
@@ -54,42 +88,67 @@ const msalInstance = new PublicClientApplication(msalConfig);
 
 // Create Vue application instance
 const app = createApp(App);
-const pinia = createPinia();
+
+// Use Quasar
+app.use(Quasar, {
+  plugins: {
+    Notify,
+    Loading,
+    Dialog
+  },
+  components: {
+    QLayout,
+    QHeader,
+    QDrawer,
+    QPageContainer,
+    QPage,
+    QToolbar,
+    QToolbarTitle,
+    QBtn,
+    QIcon,
+    QList,
+    QItem,
+    QItemSection,
+    QItemLabel,
+    QCard,
+    QCardSection,
+    QCardActions,
+    QForm,
+    QInput,
+    QSelect,
+    QSpinner,
+    QTable,
+    QTh,
+    QTr,
+    QTd,
+    QSpace,
+    QSeparator,
+    QChip,
+    QBadge,
+    QDialog,
+    QBtnGroup
+  },
+  config: {
+    brand: {
+      primary: '#1976D2',
+      secondary: '#26A69A',
+      accent: '#9C27B0',
+      dark: '#1D1D1D',
+      positive: '#21BA45',
+      negative: '#C10015',
+      info: '#31CCEC',
+      warning: '#F2C037'
+    },
+    notify: {
+      position: 'top-right',
+      timeout: 2500,
+      textColor: 'white'
+    }
+  }
+});
 
 // Make app instance available globally
 (window as any).vueApp = app;
-
-// Configure Quasar framework
-function configureQuasar(app: any) {
-  app.use(Quasar, {
-    plugins: {
-      Notify,
-      Dialog,
-      Loading
-    },
-    config: {
-      brand: {
-        primary: '#1976D2',
-        secondary: '#26A69A',
-        accent: '#9C27B0',
-        dark: '#1D1D1D',
-        positive: '#21BA45',
-        negative: '#C10015',
-        info: '#31CCEC',
-        warning: '#F2C037'
-      },
-      notify: {
-        position: 'top-right',
-        timeout: 5000,
-        textColor: 'white'
-      },
-      loading: {
-        spinnerSize: 140,
-        spinnerColor: 'primary'
-      }
-    }
-  });
-}
 
 // Configure security monitoring
 function setupSecurity(app: any) {
@@ -172,10 +231,8 @@ performance.mark('app-init-start');
 // Initialize application
 async function initializeApp() {
   try {
-    // Configure core plugins
-    app.use(pinia);
-    app.use(router);
-    configureQuasar(app);
+    // Setup Vue with plugins
+    setupVue(app, router);
 
     // Setup security and monitoring
     setupSecurity(app);
@@ -205,4 +262,4 @@ window.addEventListener('unload', () => {
     appInsights?.flush();
 });
 
-export { app, pinia, appInsights, msalInstance };
+export { app, appInsights, msalInstance };

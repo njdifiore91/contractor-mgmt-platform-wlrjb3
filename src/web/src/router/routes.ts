@@ -57,7 +57,7 @@ export const default_routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'dashboard',
-        component: () => import('../pages/dashboard/DashboardPage.vue' as any),
+        component: () => import('../pages/dashboard/RoleBasedDashboard.vue' as any),
         meta: {
           requiresAuth: true,
           title: 'Dashboard',
@@ -74,6 +74,17 @@ export const default_routes: RouteRecordRaw[] = [
             meta: {
               requiresAuth: true,
               title: 'Customers',
+              allowedRoles: ['Admin', 'Operations'],
+              layout: 'default'
+            }
+          },
+          {
+            path: 'create',
+            name: 'customers-create',
+            component: () => import('../pages/customers/CustomerCreatePage.vue' as any),
+            meta: {
+              requiresAuth: true,
+              title: 'Create Customer',
               allowedRoles: ['Admin', 'Operations'],
               layout: 'default'
             }
@@ -128,6 +139,17 @@ export const default_routes: RouteRecordRaw[] = [
             meta: {
               requiresAuth: true,
               title: 'Equipment',
+              allowedRoles: ['Admin', 'Operations', 'Inspector'],
+              layout: 'default'
+            }
+          },
+          {
+            path: 'create',
+            name: 'equipment-create',
+            component: () => import('../pages/equipment/EquipmentCreatePage.vue' as any),
+            meta: {
+              requiresAuth: true,
+              title: 'Create Equipment',
               allowedRoles: ['Admin', 'Operations'],
               layout: 'default'
             }
@@ -139,7 +161,7 @@ export const default_routes: RouteRecordRaw[] = [
             meta: {
               requiresAuth: true,
               title: 'Equipment Details',
-              allowedRoles: ['Admin', 'Operations'],
+              allowedRoles: ['Admin', 'Operations', 'Inspector'],
               layout: 'default'
             }
           }

@@ -1,5 +1,5 @@
 import { Inspector, InspectorStatus } from '../../src/models/inspector.model';
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
+import { GeographyPoint } from '../../src/models/inspector.model';
 
 describe('Inspector Management', () => {
   const mockInspector: Inspector = {

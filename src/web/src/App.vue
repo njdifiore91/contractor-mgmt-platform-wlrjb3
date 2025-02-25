@@ -1,5 +1,5 @@
 <template>
-  <q-app class="app-root" :class="{ 'dark-mode': isDarkMode }">
+  <div id="q-app" class="app-root" :class="{ 'dark-mode': isDarkMode }">
     <!-- Layout System -->
     <component 
       :is="determineLayout" 
@@ -22,7 +22,7 @@
     >
       Skip to main content
     </a>
-  </q-app>
+  </div>
 </template>
 
 <script lang="ts">

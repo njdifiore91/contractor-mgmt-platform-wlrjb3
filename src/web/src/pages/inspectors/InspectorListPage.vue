@@ -1,7 +1,5 @@
 <template>
   <q-page class="inspector-list-page" role="main" aria-label="Inspector Management">
-    <!-- Page Header with Breadcrumb -->
-    <AppBreadcrumb />
     <h1 class="page-title q-mb-lg">Inspector Management</h1>
 
     <!-- Error Boundary -->
@@ -23,8 +21,45 @@
         @select="handleInspectorSelect"
         @filter="handleFilterChange"
         @location-search="handleLocationSearch"
+        @drug-test="handleDrugTest"
       />
     </template>
+
+    <!-- Drug Test Dialog -->
+    <q-dialog v-model="showDrugTestDialog" persistent>
+      <q-card style="min-width: 350px">
+        <q-card-section>
+          <div class="text-h6">Drug Test</div>
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <q-form @submit="submitDrugTest" class="q-gutter-md">
+            <q-input
+              v-model="drugTestData.testDate"
+              type="date"
+              label="Test Date"
+              :rules="[val => !!val || 'Test date is required']"
+            />
+            <q-select
+              v-model="drugTestData.result"
+              :options="['Negative', 'Positive']"
+              label="Test Result"
+              :rules="[val => !!val || 'Test result is required']"
+            />
+            <q-input
+              v-model="drugTestData.notes"
+              type="textarea"
+              label="Notes"
+              rows="3"
+            />
+            <div class="row justify-end q-mt-md">
+              <q-btn label="Cancel" color="grey" flat v-close-popup />
+              <q-btn label="Submit" type="submit" color="primary" class="q-ml-sm" />
+            </div>
+          </q-form>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -33,17 +68,15 @@ import { defineComponent, ref, onMounted, onErrorCaptured } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { QPage, useQuasar } from 'quasar';
 import InspectorList from '@/components/inspectors/InspectorList.vue';
-import AppBreadcrumb from '@/components/common/AppBreadcrumb.vue';
 import { useInspector } from '@/composables/useInspector';
-import { Inspector } from '@/models/inspector.model';
-import type { GeographyPoint } from '@types/microsoft-spatial';
+import type { Inspector, GeographyPoint } from '@/models/inspector.model';
+import { addDrugTest } from '@/api/inspector.api';
 
 export default defineComponent({
   name: 'InspectorListPage',
 
   components: {
-    InspectorList,
-    AppBreadcrumb
+    InspectorList
   },
 
   setup() {
@@ -63,6 +96,15 @@ export default defineComponent({
       setSelectedCertifications
     } = useInspector();
 
+    // Drug test dialog state
+    const showDrugTestDialog = ref(false);
+    const selectedInspectorForDrugTest = ref<Inspector | null>(null);
+    const drugTestData = ref({
+      testDate: new Date().toISOString().split('T')[0],
+      result: 'Negative',
+      notes: ''
+    });
+
     // Handle inspector selection with navigation
     const handleInspectorSelect = async (inspector: Inspector) => {
       try {
@@ -72,6 +114,47 @@ export default defineComponent({
         $q.notify({
           type: 'negative',
           message: 'Failed to select inspector',
+          position: 'top'
+        });
+      }
+    };
+
+    // Handle drug test action
+    const handleDrugTest = (inspector: Inspector) => {
+      selectedInspectorForDrugTest.value = inspector;
+      showDrugTestDialog.value = true;
+    };
+
+    // Submit drug test
+    const submitDrugTest = async () => {
+      try {
+        if (!selectedInspectorForDrugTest.value) return;
+
+        await addDrugTest(selectedInspectorForDrugTest.value.id.toString(), {
+          testDate: new Date(drugTestData.value.testDate),
+          result: drugTestData.value.result,
+          notes: drugTestData.value.notes
+        });
+
+        $q.notify({
+          type: 'positive',
+          message: 'Drug test recorded successfully',
+          position: 'top'
+        });
+
+        showDrugTestDialog.value = false;
+        // Reset form
+        drugTestData.value = {
+          testDate: new Date().toISOString().split('T')[0],
+          result: 'Negative',
+          notes: ''
+        };
+        // Refresh inspector list
+        await searchInspectors();
+      } catch (err) {
+        $q.notify({
+          type: 'negative',
+          message: 'Failed to record drug test',
           position: 'top'
         });
       }
@@ -172,7 +255,11 @@ export default defineComponent({
       error,
       handleInspectorSelect,
       handleLocationSearch,
-      handleFilterChange
+      handleFilterChange,
+      showDrugTestDialog,
+      drugTestData,
+      handleDrugTest,
+      submitDrugTest
     };
   }
 });

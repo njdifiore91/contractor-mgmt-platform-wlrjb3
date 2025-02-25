@@ -10,40 +10,6 @@
       class="q-pa-md"
       aria-live="polite"
     >
-      <QSelect
-        v-model="formData.testType"
-        :options="testTypeOptions"
-        label="Test Type"
-        :rules="[val => !!val || 'Test type is required']"
-        emit-value
-        map-options
-        class="q-mb-md"
-        aria-required="true"
-        :error-message="'Please select a test type'"
-      />
-
-      <QInput
-        v-model="formData.testKitId"
-        label="Test Kit ID"
-        :rules="[validateTestKitId]"
-        class="q-mb-md"
-        aria-required="true"
-        :error-message="'Please enter a valid test kit ID'"
-      >
-        <template v-slot:hint>
-          Format: ABC-12345
-        </template>
-      </QInput>
-
-      <QInput
-        v-model="formData.administeredBy"
-        label="Administered By"
-        :rules="[val => !!val && val.trim().length > 0 || 'Administrator name is required']"
-        class="q-mb-md"
-        aria-required="true"
-        :error-message="'Please enter the administrator name'"
-      />
-
       <QInput
         v-model="formData.testDate"
         type="date"
@@ -58,22 +24,34 @@
         :error-message="'Please enter a valid test date'"
       />
 
+      <QSelect
+        v-model="formData.result"
+        :options="resultOptions"
+        label="Test Result"
+        :rules="[val => !!val || 'Test result is required']"
+        emit-value
+        map-options
+        class="q-mb-md"
+        aria-required="true"
+        :error-message="'Please select a test result'"
+      />
+
       <QInput
         v-model="formData.notes"
         type="textarea"
         label="Notes"
         class="q-mb-lg"
         aria-label="Additional notes"
+        :rules="[val => !val || val.length <= 500 || 'Notes cannot exceed 500 characters']"
       />
 
       <div class="row justify-end q-gutter-sm">
         <QBtn
-          label="Reset"
-          type="reset"
-          color="secondary"
+          label="Cancel"
+          color="grey"
           flat
-          @click="resetForm"
-          aria-label="Reset form"
+          @click="handleCancel"
+          aria-label="Cancel drug test"
         />
         <QBtn
           label="Submit"
@@ -88,11 +66,11 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed } from 'vue'; // ^3.3.0
-import { QForm, QInput, QSelect, QBtn, QCard, QCardSection, date } from 'quasar'; // ^2.0.0
-import { DrugTest, DrugTestType } from '../../models/drugTest.model';
-import { useInspector } from '../../composables/useInspector';
-import { useNotification } from '../../composables/useNotification';
+import { defineComponent, ref, computed } from 'vue';
+import { QForm, QInput, QSelect, QBtn, QCard, QCardSection, date } from 'quasar';
+import type { DrugTest } from '@/models/inspector.model';
+import { useNotification } from '@/composables/useNotification';
+import { addDrugTest } from '@/api/inspector.api';
 
 export default defineComponent({
   name: 'DrugTestForm',
@@ -108,42 +86,34 @@ export default defineComponent({
 
   props: {
     inspectorId: {
-      type: Number,
+      type: [Number, String],
       required: true,
-      validator: (value: number) => value > 0
+      validator: (value: number | string) => {
+        const numValue = typeof value === 'string' ? parseInt(value) : value;
+        return !isNaN(numValue) && numValue > 0;
+      }
     }
   },
 
-  emits: ['submitted'],
+  emits: ['submitted', 'cancel'],
 
   setup(props, { emit }) {
     const drugTestForm = ref<typeof QForm | null>(null);
     const isSubmitting = ref(false);
-    const { createDrugTest } = useInspector();
-    const { showSuccessNotification, showErrorNotification } = useNotification();
+    const { showSuccess, showError } = useNotification();
 
     const currentDate = computed(() => date.formatDate(new Date(), 'YYYY-MM-DD'));
 
     const formData = ref({
-      testType: null as DrugTestType | null,
-      testKitId: '',
-      administeredBy: '',
       testDate: currentDate.value,
+      result: '',
       notes: ''
     });
 
-    const testTypeOptions = [
-      { label: 'Random', value: DrugTestType.RANDOM },
-      { label: 'Pre-Mobilization', value: DrugTestType.PRE_MOBILIZATION },
-      { label: 'Incident', value: DrugTestType.INCIDENT },
-      { label: 'Periodic', value: DrugTestType.PERIODIC }
+    const resultOptions = [
+      { label: 'Negative', value: 'Negative' },
+      { label: 'Positive', value: 'Positive' }
     ];
-
-    const validateTestKitId = (value: string): boolean | string => {
-      if (!value) return 'Test kit ID is required';
-      const testKitPattern = /^[A-Z0-9]+-[0-9]+$/;
-      return testKitPattern.test(value) || 'Invalid test kit ID format (e.g., ABC-12345)';
-    };
 
     const sanitizeInput = (input: string): string => {
       return input.trim().replace(/[<>]/g, '');
@@ -156,47 +126,29 @@ export default defineComponent({
 
         isSubmitting.value = true;
 
-        const drugTestData = {
-          inspectorId: props.inspectorId,
-          testType: formData.value.testType!,
-          testKitId: sanitizeInput(formData.value.testKitId),
-          administeredBy: sanitizeInput(formData.value.administeredBy),
+        await addDrugTest(props.inspectorId.toString(), {
           testDate: new Date(formData.value.testDate),
+          result: formData.value.result,
           notes: sanitizeInput(formData.value.notes)
-        };
+        });
 
-        const result = await createDrugTest(drugTestData);
-
-        showSuccessNotification('Drug test record created successfully');
-        emit('submitted', result);
-        resetForm();
+        showSuccess('Drug test record created successfully');
+        emit('submitted');
 
       } catch (error) {
-        showErrorNotification(
-          error instanceof Error ? error.message : 'Failed to create drug test record'
-        );
+        showError(error instanceof Error ? error.message : 'Failed to create drug test record');
       } finally {
         isSubmitting.value = false;
       }
     };
 
-    const resetForm = () => {
+    const handleCancel = () => {
       formData.value = {
-        testType: null,
-        testKitId: '',
-        administeredBy: '',
         testDate: currentDate.value,
+        result: '',
         notes: ''
       };
-      drugTestForm.value?.resetValidation();
-      
-      // Announce form reset to screen readers
-      const announcement = document.createElement('div');
-      announcement.setAttribute('role', 'status');
-      announcement.setAttribute('aria-live', 'polite');
-      announcement.textContent = 'Form has been reset';
-      document.body.appendChild(announcement);
-      setTimeout(() => announcement.remove(), 1000);
+      emit('cancel');
     };
 
     return {
@@ -204,10 +156,9 @@ export default defineComponent({
       formData,
       isSubmitting,
       currentDate,
-      testTypeOptions,
-      validateTestKitId,
+      resultOptions,
       submitForm,
-      resetForm
+      handleCancel
     };
   }
 });
@@ -215,20 +166,8 @@ export default defineComponent({
 
 <style lang="scss">
 .drug-test-form {
+  min-width: 400px;
   max-width: 600px;
   margin: 0 auto;
-
-  .q-field {
-    &--error {
-      margin-bottom: 1rem;
-    }
-  }
-
-  // Enhance focus visibility for accessibility
-  .q-field__native:focus,
-  .q-field__native:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-  }
 }
 </style>

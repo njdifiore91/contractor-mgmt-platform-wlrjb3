@@ -1,5 +1,5 @@
 // @types/microsoft-spatial v7.12.2 - Required for geographic location data types
-import { GeographyPoint } from '../models/inspector.model';
+import type { GeographyPoint } from '@/models/inspector.model';
 
 /**
  * Constants for geographic calculations and validation

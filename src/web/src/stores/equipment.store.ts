@@ -6,8 +6,8 @@
 
 import { defineStore } from 'pinia'; // ^2.1.0
 import { ref, computed, watch } from 'vue'; // ^3.3.0
-import type { Equipment, EquipmentAssignment, EquipmentHistory, EquipmentStatus } from '../models/equipment.model';
-import { EquipmentType } from '../models/equipment.model';
+import { Equipment, EquipmentType, EquipmentStatus } from '../models/equipment.model';
+import type { EquipmentAssignment, EquipmentHistory } from '../models/equipment-types';
 import { 
   getEquipmentList, 
   getEquipmentById, 
@@ -95,12 +95,29 @@ export const useEquipmentStore = defineStore('equipment', () => {
 
     try {
       const response = await getEquipmentList();
-      equipment.value = response;
+      equipment.value = response.map(item => {
+        try {
+          return Equipment.fromJSON({
+            ...item,
+            id: item.id,
+            purchaseDate: item.purchaseDate ? new Date(item.purchaseDate) : new Date(),
+            lastMaintenanceDate: item.lastMaintenanceDate ? new Date(item.lastMaintenanceDate) : null
+          });
+        } catch (error) {
+          console.error('Error creating Equipment instance:', error);
+          return null;
+        }
+      }).filter((item): item is Equipment => item !== null);
+
       lastSync.value = new Date();
       retryCount.value = 0;
-      notificationStore.success('Equipment list updated successfully');
-    } catch (err) {
-      error.value = err.message;
+      
+      if (forceRefresh) {
+        notificationStore.success('Equipment list updated successfully');
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      error.value = errorMessage;
       notificationStore.error('Failed to load equipment list');
       if (retryCount.value < MAX_RETRY_ATTEMPTS) {
         retryCount.value++;
@@ -112,7 +129,6 @@ export const useEquipmentStore = defineStore('equipment', () => {
   };
 
   const selectEquipment = async (id: number) => {
-    // Check cache first
     if (cache.value[id]) {
       selectedEquipment.value = cache.value[id];
       return;
@@ -125,9 +141,10 @@ export const useEquipmentStore = defineStore('equipment', () => {
       const response = await getEquipmentById(id);
       selectedEquipment.value = response;
       cache.value[id] = response;
-    } catch (err) {
-      error.value = err.message;
-      notificationStore.error(`Failed to load equipment details: ${err.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      error.value = errorMessage;
+      notificationStore.error(`Failed to load equipment details: ${errorMessage}`);
     } finally {
       loading.value = false;
     }
@@ -189,40 +206,41 @@ export const useEquipmentStore = defineStore('equipment', () => {
       }
       notificationStore.success('Equipment assigned successfully');
       return response;
-    } catch (err) {
-      error.value = err.message;
-      notificationStore.error(`Failed to assign equipment: ${err.message}`);
-      throw err;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      error.value = errorMessage;
+      notificationStore.error(`Failed to assign equipment: ${errorMessage}`);
+      throw error;
     } finally {
       loading.value = false;
     }
   };
 
   const processEquipmentReturn = async (
-    assignmentId: number,
+    equipmentId: number,
     returnDetails: { returnCondition: string; notes?: string }
   ) => {
     loading.value = true;
     error.value = null;
 
     try {
-      const response = await returnEquipment(assignmentId, returnDetails);
-      const assignmentIndex = assignments.value.findIndex(item => item.id === assignmentId);
-      if (assignmentIndex !== -1) {
-        assignments.value[assignmentIndex] = response;
-      }
+      const response = await returnEquipment(equipmentId, returnDetails);
+      
       // Update equipment availability
-      const equipmentIndex = equipment.value.findIndex(item => item.id === response.equipmentId);
+      const equipmentIndex = equipment.value.findIndex(item => item.id === equipmentId);
       if (equipmentIndex !== -1) {
         equipment.value[equipmentIndex].status = 'AVAILABLE';
-        cache.value[response.equipmentId] = equipment.value[equipmentIndex];
+        equipment.value[equipmentIndex].condition = returnDetails.returnCondition;
+        cache.value[equipmentId] = equipment.value[equipmentIndex];
       }
+      
       notificationStore.success('Equipment return processed successfully');
       return response;
-    } catch (err) {
-      error.value = err.message;
-      notificationStore.error(`Failed to process equipment return: ${err.message}`);
-      throw err;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      error.value = errorMessage;
+      notificationStore.error(`Failed to process equipment return: ${errorMessage}`);
+      throw error;
     } finally {
       loading.value = false;
     }
@@ -250,6 +268,80 @@ export const useEquipmentStore = defineStore('equipment', () => {
     lastSync.value = null;
   };
 
+  // Real-time update subscription
+  type EquipmentCallback = (equipment: Equipment[]) => void;
+  const subscribers = ref<Set<EquipmentCallback>>(new Set());
+
+  const subscribeToUpdates = (callback: EquipmentCallback): (() => void) => {
+    // Validate callback is a function
+    if (typeof callback !== 'function') {
+      console.error('Invalid callback:', callback);
+      throw new Error('Invalid callback provided to subscribeToUpdates: Callback must be a function');
+    }
+
+    subscribers.value.add(callback);
+    
+    // Initial callback with current data
+    try {
+      // Create proper Equipment instances with date handling
+      const currentEquipment = equipment.value.map(item => {
+        try {
+          return new Equipment({
+            ...item,
+            purchaseDate: item.purchaseDate ? new Date(item.purchaseDate) : new Date(),
+            lastMaintenanceDate: item.lastMaintenanceDate ? new Date(item.lastMaintenanceDate) : null
+          });
+        } catch (error) {
+          console.error('Error creating Equipment instance:', error);
+          return null;
+        }
+      }).filter((item): item is Equipment => item !== null);
+
+      // Ensure we have valid equipment data before calling callback
+      if (currentEquipment.length > 0) {
+        callback(currentEquipment);
+      }
+    } catch (error) {
+      console.error('Error in subscription callback:', error);
+    }
+    
+    // Return unsubscribe function
+    return () => {
+      subscribers.value.delete(callback);
+    };
+  };
+
+  // Notify subscribers when equipment changes
+  watch(() => equipment.value, (newEquipment) => {
+    if (!subscribers.value.size) return;
+
+    try {
+      // Create proper Equipment instances with date handling
+      const equipmentInstances = newEquipment.map(item => {
+        try {
+          return new Equipment({
+            ...item,
+            purchaseDate: item.purchaseDate ? new Date(item.purchaseDate) : new Date(),
+            lastMaintenanceDate: item.lastMaintenanceDate ? new Date(item.lastMaintenanceDate) : null
+          });
+        } catch (error) {
+          console.error('Error creating Equipment instance:', error);
+          return null;
+        }
+      }).filter((item): item is Equipment => item !== null);
+      
+      subscribers.value.forEach(callback => {
+        try {
+          callback(equipmentInstances);
+        } catch (error) {
+          console.error('Error in subscription callback:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error processing equipment updates:', error);
+    }
+  }, { deep: true });
+
   return {
     // State
     equipment,
@@ -274,6 +366,7 @@ export const useEquipmentStore = defineStore('equipment', () => {
     assignEquipmentToInspector,
     processEquipmentReturn,
     loadEquipmentHistory,
-    clearCache
+    clearCache,
+    subscribeToUpdates
   };
 });

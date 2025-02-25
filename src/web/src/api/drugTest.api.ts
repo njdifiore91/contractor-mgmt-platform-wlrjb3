@@ -5,7 +5,35 @@
  */
 
 import api from '../utils/api.util';
-import { DrugTest, CreateDrugTestRequest, UpdateDrugTestRequest, DrugTestType } from '../models/drugTest.model';
+import type { DrugTest } from '../models/inspector.model';
+import type { ApiError } from '../models/error.model';
+
+// Define the request types here since they're API-specific
+export interface CreateDrugTestRequest {
+    inspectorId: number;
+    testDate: Date;
+    result: string;
+    testType: DrugTestType;
+    testKitId: string;
+    administeredBy: string;
+    notes?: string;
+}
+
+export interface UpdateDrugTestRequest {
+    testDate?: Date;
+    result?: string;
+    testType?: DrugTestType;
+    testKitId?: string;
+    administeredBy?: string;
+    notes?: string;
+    passed?: boolean;
+}
+
+export enum DrugTestType {
+    Standard = 'STANDARD',
+    Random = 'RANDOM',
+    PostIncident = 'POST_INCIDENT'
+}
 
 // API endpoint base path
 const API_BASE_PATH = '/api/v1/drugtests';
@@ -29,7 +57,8 @@ export const createDrugTest = async (request: CreateDrugTestRequest): Promise<Dr
         const response = await api.post<DrugTest>(API_BASE_PATH, request);
         return response.data;
     } catch (error) {
-        throw new Error(`Failed to create drug test: ${error.message}`);
+        const apiError = error as ApiError;
+        throw new Error(apiError.message || 'Failed to create drug test record');
     }
 };
 
@@ -49,10 +78,11 @@ export const getDrugTestById = async (id: number): Promise<DrugTest> => {
         const response = await api.get<DrugTest>(`${API_BASE_PATH}/${id}`);
         return response.data;
     } catch (error) {
-        if (error.response?.status === 404) {
+        const apiError = error as ApiError;
+        if (apiError.response?.status === 404) {
             throw new Error(`Drug test with ID ${id} not found`);
         }
-        throw new Error(`Failed to retrieve drug test: ${error.message}`);
+        throw new Error(apiError.message || 'Failed to retrieve drug test record');
     }
 };
 
@@ -76,10 +106,8 @@ export const updateDrugTest = async (id: number, request: UpdateDrugTestRequest)
         const response = await api.put<DrugTest>(`${API_BASE_PATH}/${id}`, request);
         return response.data;
     } catch (error) {
-        if (error.response?.status === 404) {
-            throw new Error(`Drug test with ID ${id} not found`);
-        }
-        throw new Error(`Failed to update drug test: ${error.message}`);
+        const apiError = error as ApiError;
+        throw new Error(apiError.message || 'Failed to update drug test record');
     }
 };
 
@@ -136,6 +164,6 @@ export const getInspectorDrugTests = async (
         const response = await api.get<DrugTest[]>(`${API_BASE_PATH}?${queryParams.toString()}`);
         return response.data;
     } catch (error) {
-        throw new Error(`Failed to retrieve inspector drug tests: ${error.message}`);
+        throw new Error('Failed to retrieve inspector drug tests');
     }
 };

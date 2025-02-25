@@ -221,6 +221,15 @@ export function useAuth() {
         return user.permissions.includes(permission);
     };
 
+    const checkRouteAccess = (route: any): boolean => {
+        if (!route.meta?.allowedRoles) return true;
+        
+        const allowedRoles = route.meta.allowedRoles;
+        if (allowedRoles.includes('*')) return true;
+        
+        return allowedRoles.some((role: string) => authStore.hasRole(role as UserRoleType));
+    };
+
     return {
         isLoading,
         error,
@@ -236,6 +245,7 @@ export function useAuth() {
         login,
         hasPermission,
         validateSession,
-        refreshToken
+        refreshToken,
+        checkRouteAccess
     };
 }

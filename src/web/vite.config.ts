@@ -13,7 +13,10 @@ export default defineConfig({
     vue({
       script: {
         defineModel: true,
-        propsDestructure: true
+        propsDestructure: true,
+        // Enable TypeScript features
+        refSugar: true,
+        reactivityTransform: true
       }
     }),
     quasar()
@@ -23,7 +26,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, 'src')
     },
-    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue']
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
+    preserveSymlinks: true
   },
 
   css: {
@@ -104,7 +108,11 @@ export default defineConfig({
       'pinia',
       'quasar',
       '@vueuse/core'
-    ]
+    ],
+    exclude: [],
+    esbuildOptions: {
+      target: 'esnext'
+    }
   },
 
   esbuild: {

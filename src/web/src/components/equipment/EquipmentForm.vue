@@ -67,15 +67,13 @@
 
       <!-- Condition -->
       <div class="col-12 col-md-6">
-        <q-input
+        <q-select
           v-model="formData.condition"
-          :rules="[
-            val => !!val || 'Condition is required',
-            val => val.length >= 2 && val.length <= 100 || 'Condition must be between 2 and 100 characters'
-          ]"
+          :options="['new', 'good', 'fair', 'poor']"
           label="Condition"
           outlined
           dense
+          :rules="[val => !!val || 'Condition is required']"
           :error="!!errors.condition"
           :error-message="errors.condition"
           aria-required="true"
@@ -167,6 +165,10 @@ export default defineComponent({
     equipment: {
       type: Object as () => Equipment | null,
       default: null
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
 
@@ -178,7 +180,6 @@ export default defineComponent({
     const { showSuccessNotification, showErrorNotification } = useNotification();
     
     const formRef = ref<any>(null);
-    const loading = ref(false);
     const errors = ref<Record<string, string>>({});
 
     // Form data initialization
@@ -210,59 +211,55 @@ export default defineComponent({
     });
 
     // Field validation
-    const validateField = async (fieldName: string) => {
-      const value = formData.value[fieldName as keyof typeof formData.value];
-      let isValid = true;
-      let errorMessage = '';
-
-      switch (fieldName) {
+    const validateField = async (field: string): Promise<boolean> => {
+      const value = formData.value[field as keyof typeof formData.value];
+      
+      switch (field) {
         case 'serialNumber':
-          isValid = /^[A-Za-z0-9-]{5,20}$/.test(value);
-          errorMessage = isValid ? '' : 'Invalid serial number format';
+          if (!value) {
+            errors.value[field] = 'Serial number is required';
+            return false;
+          }
+          if (!/^[A-Za-z0-9-]{5,20}$/.test(value)) {
+            errors.value[field] = 'Invalid serial number format';
+            return false;
+          }
           break;
+
         case 'model':
-          isValid = value.length >= 2 && value.length <= 50;
-          errorMessage = isValid ? '' : 'Model must be between 2 and 50 characters';
+          if (!value) {
+            errors.value[field] = 'Model is required';
+            return false;
+          }
+          if (value.length < 2 || value.length > 50) {
+            errors.value[field] = 'Model must be between 2 and 50 characters';
+            return false;
+          }
           break;
+
         case 'type':
-          isValid = Object.values(EquipmentType).includes(value);
-          errorMessage = isValid ? '' : 'Invalid equipment type';
-          break;
         case 'condition':
-          isValid = value.length >= 2 && value.length <= 100;
-          errorMessage = isValid ? '' : 'Condition must be between 2 and 100 characters';
-          break;
         case 'purchaseDate':
-          isValid = new Date(value) <= new Date();
-          errorMessage = isValid ? '' : 'Purchase date cannot be in the future';
-          break;
-        case 'notes':
-          isValid = !value || value.length <= 500;
-          errorMessage = isValid ? '' : 'Notes cannot exceed 500 characters';
+          if (!value) {
+            errors.value[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+            return false;
+          }
           break;
       }
 
-      if (!isValid) {
-        errors.value[fieldName] = errorMessage;
-      } else {
-        delete errors.value[fieldName];
-      }
-
-      return isValid;
+      delete errors.value[field];
+      return true;
     };
 
     // Form submission
     const handleSubmit = async () => {
       try {
-        loading.value = true;
-
         // Validate all fields
         const validations = await Promise.all(
           Object.keys(formData.value).map(field => validateField(field))
         );
 
         if (validations.some(v => !v)) {
-          showErrorNotification('Please correct the form errors');
           return;
         }
 
@@ -281,11 +278,9 @@ export default defineComponent({
           showSuccessNotification('Equipment created successfully');
         }
 
-        emit('save');
+        emit('save', equipmentData);
       } catch (error) {
         showErrorNotification(`Failed to ${props.equipment ? 'update' : 'create'} equipment: ${error.message}`);
-      } finally {
-        loading.value = false;
       }
     };
 
@@ -299,7 +294,6 @@ export default defineComponent({
     return {
       formRef,
       formData,
-      loading,
       errors,
       equipmentTypeOptions,
       isFormValid,
@@ -314,6 +308,73 @@ export default defineComponent({
 .equipment-form {
   max-width: 800px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 2rem;
+  background: var(--q-primary-light, #f8fafc);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+
+  :deep(.q-field) {
+    background: white;
+    border-radius: 8px;
+    
+    .q-field__control {
+      background: white;
+    }
+
+    .q-field__native,
+    .q-field__prefix,
+    .q-field__suffix,
+    .q-field__input {
+      color: var(--q-dark);
+    }
+  }
+
+  @media (max-width: $breakpoint-sm) {
+    padding: 1rem;
+  }
+}
+
+// Dark mode support
+.body--dark .equipment-form {
+  background: var(--q-dark);
+
+  :deep(.q-field) {
+    background: var(--q-dark-page);
+    
+    .q-field__control {
+      background: var(--q-dark-page);
+    }
+
+    .q-field__native,
+    .q-field__prefix,
+    .q-field__suffix,
+    .q-field__input {
+      color: white;
+    }
+
+    &.q-field--focused {
+      .q-field__control {
+        box-shadow: 0 0 0 2px var(--q-primary);
+      }
+    }
+  }
+
+  // Dark mode button adjustments
+  :deep(.q-btn) {
+    &.q-btn--flat {
+      color: rgba(255, 255, 255, 0.7);
+      
+      &:hover {
+        color: white;
+      }
+    }
+  }
+}
+
+// High contrast mode support
+@media (forced-colors: active) {
+  .equipment-form {
+    border: 1px solid CanvasText;
+  }
 }
 </style>

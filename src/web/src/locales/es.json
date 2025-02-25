@@ -1,0 +1,41 @@
+{
+  "equipment": {
+    "search": {
+      "placeholder": "Buscar equipo..."
+    },
+    "type": "Tipo de Equipo",
+    "filters": {
+      "available_only": "Solo Disponibles"
+    },
+    "fields": {
+      "serial_number": "Número de Serie",
+      "type": "Tipo",
+      "model": "Modelo",
+      "status": "Estado",
+      "last_maintenance": "Último Mantenimiento",
+      "actions": "Acciones"
+    },
+    "types": {
+      "laptop": "Portátil",
+      "mobile": "Móvil",
+      "tablet": "Tableta",
+      "testkit": "Kit de Prueba",
+      "safetygear": "Equipo de Seguridad",
+      "inspectiontool": "Herramienta de Inspección"
+    },
+    "actions": {
+      "edit": "Editar Equipo",
+      "assign": "Asignar Equipo"
+    }
+  },
+  "breadcrumb": {
+    "home": "Inicio",
+    "dashboard": "Panel",
+    "equipment": "Equipos",
+    "customers": "Clientes",
+    "inspectors": "Inspectores",
+    "admin": "Administración",
+    "settings": "Configuración",
+    "users": "Usuarios"
+  }
+} 

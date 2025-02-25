@@ -4,11 +4,22 @@
  * @version 1.0.0
  */
 
-import { defineStore } from 'pinia'; // ^2.1.0
-import { storeToRefs } from 'pinia'; // ^2.1.0
-import { ICustomer, IContact, IContract, CustomerStatus } from '../models/customer.model';
+import { defineStore } from 'pinia';
 import { useNotificationStore } from './notification.store';
 import customerApi from '../api/customer.api';
+import type { ICustomer } from '../models/customer.model';
+import { CustomerStatus } from '../models/customer.model';
+
+/**
+ * Interface defining the API response structure
+ */
+interface ApiResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 /**
  * Interface defining pagination metadata
@@ -25,7 +36,6 @@ interface PaginationState {
 interface FilterState {
   search: string;
   region: string;
-  isActive: boolean | null;
   status: CustomerStatus | null;
 }
 
@@ -42,8 +52,6 @@ interface SortingState {
  */
 interface CustomerState {
   customers: Map<number, ICustomer>;
-  customerContacts: Map<number, IContact[]>;
-  customerContracts: Map<number, IContract[]>;
   loading: boolean;
   error: string | null;
   filters: FilterState;
@@ -58,15 +66,12 @@ interface CustomerState {
 export const useCustomerStore = defineStore('customer', {
   state: (): CustomerState => ({
     customers: new Map(),
-    customerContacts: new Map(),
-    customerContracts: new Map(),
     loading: false,
     error: null,
     selectedCustomerId: null,
     filters: {
       search: '',
       region: '',
-      isActive: null,
       status: null
     },
     pagination: {
@@ -81,46 +86,15 @@ export const useCustomerStore = defineStore('customer', {
   }),
 
   getters: {
-    /**
-     * Returns customer list as an array, sorted and filtered
-     */
     customerList: (state): ICustomer[] => {
-      const customers = Array.from(state.customers.values());
-      return customers.filter(customer => {
-        const matchesSearch = !state.filters.search || 
-          customer.name.toLowerCase().includes(state.filters.search.toLowerCase()) ||
-          customer.code.toLowerCase().includes(state.filters.search.toLowerCase());
-        
-        const matchesRegion = !state.filters.region || customer.region === state.filters.region;
-        const matchesStatus = !state.filters.status || customer.status === state.filters.status;
-        const matchesActive = state.filters.isActive === null || customer.isActive === state.filters.isActive;
-
-        return matchesSearch && matchesRegion && matchesStatus && matchesActive;
-      }).sort((a, b) => {
-        const field = state.sorting.field as keyof ICustomer;
-        const order = state.sorting.order === 'asc' ? 1 : -1;
-        return a[field] > b[field] ? order : -order;
-      });
+      return Array.from(state.customers.values());
     },
 
-    /**
-     * Returns currently selected customer with related data
-     */
     selectedCustomer: (state): ICustomer | null => {
       if (!state.selectedCustomerId) return null;
-      const customer = state.customers.get(state.selectedCustomerId);
-      if (!customer) return null;
-
-      return {
-        ...customer,
-        contacts: state.customerContacts.get(customer.id) || [],
-        contracts: state.customerContracts.get(customer.id) || []
-      };
+      return state.customers.get(state.selectedCustomerId) || null;
     },
 
-    /**
-     * Returns total pages based on pagination settings
-     */
     totalPages: (state): number => {
       return Math.ceil(state.pagination.total / state.pagination.limit);
     }
@@ -140,17 +114,23 @@ export const useCustomerStore = defineStore('customer', {
           limit: this.pagination.limit,
           search: this.filters.search,
           region: this.filters.region,
-          isActive: this.filters.isActive,
+          status: this.filters.status || undefined,
           sortBy: this.sorting.field,
           sortOrder: this.sorting.order
         });
 
-        // Update store with Map-based storage
-        response.data.forEach(customer => {
-          this.customers.set(customer.id, customer);
-        });
+        // Clear existing customers
+        this.customers.clear();
 
-        this.pagination.total = response.total;
+        // Update store with Map-based storage
+        if (response.items && Array.isArray(response.items)) {
+          response.items.forEach((customer: ICustomer) => {
+            this.customers.set(customer.id, customer);
+          });
+        }
+
+        // Update pagination
+        this.pagination.total = response.total || 0;
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Failed to fetch customers';
         useNotificationStore().error(this.error);
@@ -160,7 +140,7 @@ export const useCustomerStore = defineStore('customer', {
     },
 
     /**
-     * Fetches a single customer with associated data
+     * Fetches a single customer
      */
     async fetchCustomerById(id: number): Promise<void> {
       try {
@@ -170,15 +150,6 @@ export const useCustomerStore = defineStore('customer', {
         const customer = await customerApi.getCustomerById(id);
         this.customers.set(customer.id, customer);
         this.selectedCustomerId = customer.id;
-
-        // Fetch associated data
-        const [contacts, contracts] = await Promise.all([
-          customerApi.getCustomerContacts(id),
-          customerApi.getCustomerContracts(id)
-        ]);
-
-        this.customerContacts.set(id, contacts);
-        this.customerContracts.set(id, contracts);
       } catch (error) {
         this.error = error instanceof Error ? error.message : 'Failed to fetch customer details';
         useNotificationStore().error(this.error);
@@ -188,7 +159,7 @@ export const useCustomerStore = defineStore('customer', {
     },
 
     /**
-     * Creates a new customer with optimistic updates
+     * Creates a new customer
      */
     async createCustomer(customer: Omit<ICustomer, 'id' | 'createdAt' | 'modifiedAt'>): Promise<void> {
       try {
@@ -209,7 +180,7 @@ export const useCustomerStore = defineStore('customer', {
     },
 
     /**
-     * Updates customer with optimistic updates and error handling
+     * Updates customer
      */
     async updateCustomer(id: number, updates: Partial<ICustomer>): Promise<void> {
       const previousData = this.customers.get(id);
@@ -240,7 +211,7 @@ export const useCustomerStore = defineStore('customer', {
     },
 
     /**
-     * Deletes customer with optimistic removal
+     * Deletes customer
      */
     async deleteCustomer(id: number): Promise<void> {
       const previousData = this.customers.get(id);
@@ -252,8 +223,6 @@ export const useCustomerStore = defineStore('customer', {
 
         // Optimistic delete
         this.customers.delete(id);
-        this.customerContacts.delete(id);
-        this.customerContracts.delete(id);
 
         await customerApi.deleteCustomer(id);
         useNotificationStore().success('Customer deleted successfully');
@@ -301,15 +270,12 @@ export const useCustomerStore = defineStore('customer', {
      */
     resetState(): void {
       this.customers.clear();
-      this.customerContacts.clear();
-      this.customerContracts.clear();
       this.selectedCustomerId = null;
       this.error = null;
       this.loading = false;
       this.filters = {
         search: '',
         region: '',
-        isActive: null,
         status: null
       };
       this.pagination = {
