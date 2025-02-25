@@ -1,194 +1,179 @@
-# Service Provider Management System
+# Contractor Management Platform
 
-## Overview
+A modern web application for managing contractors, equipment, and inspections. This project uses Vue 3 with TypeScript for the frontend and includes a dummy backend for development purposes.
 
-The Service Provider Management System is an enterprise-grade web-based solution designed to streamline the management of service providers, equipment, and business processes. Built using Vue.js and Microsoft ASP.NET Core, this system provides a comprehensive platform for administrators, operations staff, field inspectors, and customer service representatives.
+## Prerequisites
 
-### Key Features
-- Role-based access control with Azure AD B2C integration
-- Customer profile and contract management
-- Equipment tracking and assignment system
-- Inspector mobilization and compliance tracking
-- Document management with OneDrive integration
-- Email notification system
-
-## Architecture
-
-### Technology Stack
-- Frontend: Vue.js 3.x with Quasar Framework 2.x
-- Backend: ASP.NET Core 6.0+ REST APIs
-- Database: SQL Server 2019+ with Azure hosting
-- Caching: Redis for session and data caching
-- Storage: OneDrive for documents, Azure Storage for blobs
-- Security: Azure AD B2C for authentication, JWT for API security
-
-### High-Level Architecture
-```mermaid
-C4Context
-    title System Context Diagram
-
-    Person(admin, "Administrator", "System configuration and management")
-    Person(ops, "Operations Staff", "Daily operations management")
-    Person(inspector, "Field Inspector", "Service delivery and equipment usage")
-    Person(customer, "Customer Service", "Customer relationship management")
-
-    System(spms, "Service Provider Management System", "Manages service providers, equipment, and business processes")
-
-    System_Ext(onedrive, "Microsoft OneDrive", "Document storage")
-    System_Ext(email, "Email System", "Communication services")
-    System_Ext(azure_ad, "Azure AD", "Authentication")
-    System_Ext(geo_data, "Geographic Database", "Location services")
-
-    Rel(admin, spms, "Manages system")
-    Rel(ops, spms, "Manages operations")
-    Rel(inspector, spms, "Updates status")
-    Rel(customer, spms, "Manages customers")
-```
+- Node.js (v16.x or higher)
+- npm (v8.x or higher)
+- Git
 
 ## Project Structure
 
 ```
+contractor-mgmt-platform/
 ├── src/
-│   ├── web/                 # Frontend Vue.js application
-│   ├── backend/            # ASP.NET Core services
-│   └── shared/            # Shared types and utilities
-├── infrastructure/
-│   ├── azure/            # Azure ARM templates
-│   └── docker/           # Docker configurations
-├── tests/
-│   ├── unit/            # Component and service tests
-│   └── integration/     # API and E2E tests
-└── docs/               # Additional documentation
+│   ├── web/                 # Frontend application
+│   │   ├── src/            # Source code
+│   │   ├── dummy-backend/  # Mock backend server
+│   │   └── package.json    # Frontend dependencies
+│   └── README.md           # This file
 ```
 
 ## Setup Instructions
 
-### Prerequisites
-- Node.js 18+
-- .NET 6.0 SDK
-- Docker Desktop
-- Azure CLI
-- SQL Server Management Studio
+### 1. Install Dependencies
 
-### Development Setup
+First, navigate to the frontend directory:
 
-1. Clone the repository:
 ```bash
-git clone https://github.com/organization/service-provider-management.git
-cd service-provider-management
-```
-
-2. Configure environment:
-```bash
-cp .env.example .env
-# Update .env with your settings
-```
-
-3. Initialize database:
-```bash
-dotnet ef database update
-```
-
-4. Start development servers:
-```bash
-# Frontend
 cd src/web
-npm install
+```
+
+Install the frontend dependencies:
+
+```bash
+npm install or npm install --legacy-peer-deps
+```
+
+Install the dummy backend dependencies:
+
+```bash
+cd dummy-backend
+npm install or npm install --legacy-peer-deps
+```
+
+### 2. Environment Configuration
+
+Create a `.env` file in the `src/web` directory:
+
+The `.env` file should contain:
+
+```
+VITE_APP_API_URL=http://localhost:3000
+VITE_APP_API_VERSION=v1
+```
+
+### 3. Start the Development Servers
+
+1. Start the dummy backend server (from the `src/web/dummy-backend` directory):
+
+```bash
+cd dummy-backend
 npm run dev
-
-# Backend
-cd src/backend
-dotnet run
 ```
 
-### Deployment
+The dummy backend will run on `http://localhost:3000`.
 
-1. Provision Azure resources:
+2. In a new terminal, start the frontend development server (from the `src/web` directory):
+
 ```bash
-az deployment group create --template-file infrastructure/azure/main.bicep
+cd src/web
+npm run dev
 ```
 
-2. Deploy application:
-```bash
-az webapp deployment source config-zip --resource-group myResourceGroup --name myApp --src dist.zip
+The frontend will run on `http://localhost:5173`.
+
+## Accessing the Application
+
+1. Open your browser and navigate to `http://localhost:5173`
+2. You will be automatically logged in with a dummy user account:
+   - Email: admin@example.com
+   - Password: (not required for dummy backend)
+
+## Available Features
+
+- **User Management**
+
+  - View list of users
+  - Create new users
+  - Edit existing users
+  - Delete users
+  - Role assignment
+
+- **Audit Logs**
+
+  - View system activity logs
+  - Filter logs by type, action, and date
+  - View detailed statistics
+
+- **Equipment Management**
+
+  - Track equipment inventory (laptops, mobile devices, tablets, test kits, safety gear, inspection tools)
+  - View equipment details and history
+  - Assign equipment to inspectors
+  - Process equipment returns
+  - Track equipment conditions and maintenance
+  - Equipment status tracking (Available, In Use, Maintenance, Retired)
+  - Maintenance scheduling and history
+  - Equipment specifications and documentation
+
+- **Inspector Management**
+  - Inspector profile management
+  - Geographic location tracking
+  - Certification tracking
+  - Drug test management and history
+  - Equipment assignment history
+  - Inspector status tracking (Available, Mobilized, Suspended)
+  - Inspector mobilization workflow
+  - Search inspectors by location (zip code and radius)
+  - Track inspector qualifications and specialties
+
+## Development Notes
+
+- The dummy backend provides mock data and simulated API responses
+- All API calls have a simulated delay to mimic real-world conditions
+- Data is not persisted between server restarts
+- The mock API follows RESTful conventions and returns properly structured responses
+
+## API Endpoints
+
+The dummy backend provides the following endpoints:
+
+```
+Users:
+- GET    /api/v1/users
+- POST   /api/v1/users
+- PUT    /api/v1/users/:id
+- DELETE /api/v1/users/:id
+
+Audit Logs:
+- GET    /api/v1/audit/logs
+- POST   /api/v1/audit/logs
+- GET    /api/v1/audit/statistics
+
+Equipment:
+- GET    /api/v1/equipment
+- GET    /api/v1/equipment/:id
+- POST   /api/v1/equipment
+- PUT    /api/v1/equipment/:id
+- POST   /api/v1/equipment/:id/assign
+- POST   /api/v1/equipment/:id/return
+- POST   /api/v1/equipment/:id/maintenance
+
+Inspectors:
+- GET    /api/v1/inspectors
+- GET    /api/v1/inspectors/:id
+- POST   /api/v1/inspectors
+- PUT    /api/v1/inspectors/:id
+- POST   /api/v1/inspectors/:id/drug-tests
+- POST   /api/v1/inspectors/:id/mobilize
+- POST   /api/v1/inspectors/:id/demobilize
+- GET    /api/v1/inspectors/search
 ```
 
-## Development Guidelines
+## Troubleshooting
 
-### Coding Standards
-- Frontend: Follow [Vue.js Style Guide](https://vuejs.org/style-guide/)
-- Backend: Follow [C# Coding Conventions](https://docs.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions)
-- Testing: Maintain minimum 80% code coverage
+1. If you see CORS errors:
 
-### Git Workflow
-- Branch naming: `feature/`, `bugfix/`, `hotfix/`
-- Commit messages: Follow Conventional Commits format
-- Pull requests: Require two approvals and passing CI checks
+   - Ensure both servers are running
+   - Check that the `VITE_APP_API_URL` in `.env` matches the dummy backend URL
 
-### CI/CD Pipeline
-- Build: Azure DevOps pipelines
-- Environments: Development, Staging, Production
-- Deployment: Blue-green deployment strategy
+2. If the frontend can't connect to the backend:
 
-## API Documentation
+   - Verify the dummy backend is running on port 3000
+   - Check the console for any error messages
 
-- OpenAPI specification available at `/swagger`
-- Authentication: JWT tokens via Azure AD B2C
-- Rate limiting: 1000 requests/minute per client
-- API versioning: URL-based `/api/v1/`
-
-## Security
-
-### Authentication
-- Azure AD B2C integration
-- Multi-factor authentication support
-- JWT token-based API security
-
-### Authorization
-- Role-based access control (RBAC)
-- Fine-grained permission system
-- Resource-level access control
-
-### Data Protection
-- TLS 1.3 for transport security
-- AES-256 for data encryption
-- SQL Always Encrypted for sensitive data
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open pull request
-
-### Code Review Process
-- Two approvals required
-- All tests must pass
-- Code coverage requirements met
-- Documentation updated
-
-## License
-
-Proprietary - All rights reserved
-
-## Support
-
-### Contact Information
-- Technical Support: support@organization.com
-- Emergency Contact: +1 (555) 123-4567
-
-### Issue Reporting
-1. Check existing issues
-2. Use issue templates
-3. Provide detailed reproduction steps
-4. Include relevant logs and screenshots
-
-### System Maintenance
-- Scheduled maintenance: First Sunday of each month
-- Emergency updates: As required with minimum 2-hour notice
-- Status updates: status.organization.com
-
----
-
-For detailed documentation, please visit the [Wiki](https://github.com/organization/service-provider-management/wiki)
+3. If changes aren't reflecting:
+   - Clear your browser cache
+   - Restart both development servers
