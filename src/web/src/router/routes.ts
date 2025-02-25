@@ -160,6 +160,17 @@ export const admin_routes: RouteRecordRaw[] = [
     },
     children: [
       {
+        path: '',
+        name: 'admin-dashboard',
+        component: () => import('../pages/admin/AdminDashboardPage.vue'),
+        meta: {
+          requiresAuth: true,
+          title: 'Admin Dashboard',
+          allowedRoles: ['Admin'],
+          layout: 'admin',
+        },
+      },
+      {
         path: 'users',
         name: 'user-management',
         component: () => import('../pages/admin/UserManagementPage.vue'),

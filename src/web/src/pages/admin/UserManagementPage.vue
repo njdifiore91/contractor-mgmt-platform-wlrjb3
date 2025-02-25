@@ -148,8 +148,8 @@
       label: 'Email',
       field: (row: any) => {
         try {
-          const decrypted = decrypt(row.email);
-          return decrypted || row.email;
+          const decrypted = decrypt(row.email) || row.email;
+          return decrypted;
         } catch (error) {
           console.warn('Failed to decrypt email:', error);
           return row.email;
