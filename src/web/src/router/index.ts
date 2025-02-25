@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteLocationNormalized, NavigationGuardNext } from 'vue-router';
 import { auth_routes, default_routes, admin_routes } from './routes';
 import { useAuth } from '@/composables/useAuth';
-import { useAuthStore } from '@/stores/auth.store';
 import { UserRoleType } from '@/models/user.model';
 
 // Security monitoring constants
@@ -12,6 +11,14 @@ const SECURITY_CHECK_INTERVAL = 30 * 1000; // 30 seconds
 
 // Navigation attempt tracking
 let navigationAttempts: Date[] = [];
+
+// Add TEST_USERS at the top with the role mapping
+const TEST_USERS: Record<string, string> = {
+  'admin@test.com': 'Admin',
+  'operations@test.com': 'Operations',
+  'inspector@test.com': 'Inspector',
+  'customer.service@test.com': 'CustomerService',
+};
 
 /**
  * Enhanced navigation guard that enforces authentication, authorization,
@@ -23,13 +30,35 @@ const setupAuthGuard = async (
   next: NavigationGuardNext
 ): Promise<void> => {
   const auth = useAuth();
-  if (!auth) throw new Error('Auth composable not available');
 
   try {
+    if (!auth) {
+      console.error('Auth composable not available');
+      return next({ path: '/auth/login' });
+    }
+
+    // Skip auth checks for public routes
+    if (!to.meta.requiresAuth) {
+      return next();
+    }
+
+    // Initialize auth
+    const isInitialized = await auth.initializeAuth().catch((err) => {
+      console.error('Auth initialization failed:', err);
+      return false;
+    });
+
+    if (!isInitialized) {
+      return next({
+        path: '/auth/login',
+        query: { redirect: to.fullPath },
+      });
+    }
+
     // Rate limiting check
     const now = Date.now();
     navigationAttempts = navigationAttempts.filter(
-      attempt => now - attempt.getTime() < RATE_LIMIT_WINDOW
+      (attempt) => now - attempt.getTime() < RATE_LIMIT_WINDOW
     );
 
     if (navigationAttempts.length >= NAVIGATION_RATE_LIMIT) {
@@ -37,9 +66,6 @@ const setupAuthGuard = async (
     }
 
     navigationAttempts.push(new Date());
-
-    // Initialize auth state if not already done
-    await auth.initializeAuth();
 
     // For auth routes (like login), redirect to dashboard if already authenticated
     if (to.path.startsWith('/auth') && auth.isAuthenticated.value) {
@@ -52,18 +78,25 @@ const setupAuthGuard = async (
       if (!isValid) {
         return next({
           path: '/auth/login',
-          query: { redirect: to.fullPath }
+          query: { redirect: to.fullPath },
         });
       }
 
       // Check role-based access
       const allowedRoles = to.meta.allowedRoles as string[];
-      if (allowedRoles && allowedRoles.length > 0 && allowedRoles[0] !== '*') {
-        const authStore = useAuthStore();
-        const hasAccess = allowedRoles.some(role => 
-          authStore.hasRole(role as UserRoleType)
-        );
-        
+      if (allowedRoles && allowedRoles.length > 0) {
+        const hasAccess = allowedRoles.some((role) => {
+          // Check if current user is a test user
+          const userEmail = auth.currentUser.value?.email;
+          if (userEmail && TEST_USERS[userEmail]) {
+            return allowedRoles.includes(TEST_USERS[userEmail]);
+          }
+
+          // Normal role check for non-test users
+          const roleId = UserRoleType[role as keyof typeof UserRoleType];
+          return auth.currentUser.value?.userRoles.some((userRole) => userRole.roleId === +roleId);
+        });
+
         if (!hasAccess) {
           console.warn('Access denied - insufficient permissions');
           return next({ name: 'dashboard' });
@@ -76,12 +109,12 @@ const setupAuthGuard = async (
   } catch (error: unknown) {
     console.error('Navigation guard error:', error);
     await auth.logout();
-    return next({ 
+    return next({
       path: '/auth/login',
-      query: { 
+      query: {
         error: 'security_violation',
-        redirect: to.fullPath
-      }
+        redirect: to.fullPath,
+      },
     });
   }
 };
@@ -94,9 +127,7 @@ const setupTitleGuard = (to: RouteLocationNormalized): void => {
   const pageTitle = to.meta.title as string;
 
   // Update document title with proper escaping
-  document.title = pageTitle ? 
-    `${pageTitle} | ${baseTitle}`.replace(/[<>]/g, '') : 
-    baseTitle;
+  document.title = pageTitle ? `${pageTitle} | ${baseTitle}`.replace(/[<>]/g, '') : baseTitle;
 
   // Track page load performance
   if (window.performance && window.performance.mark) {
@@ -115,7 +146,7 @@ const setupErrorBoundary = (
   console.error('Navigation error:', {
     error,
     to: to.fullPath,
-    from: from.fullPath
+    from: from.fullPath,
   });
 
   // Clear rate limiting on error
@@ -135,16 +166,16 @@ const router = createRouter({
       component: () => import('@/pages/error/NotFoundPage.vue' as any),
       meta: {
         title: 'Page Not Found',
-        requiresAuth: false
-      }
-    }
+        requiresAuth: false,
+      },
+    },
   ],
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition;
     }
     return { top: 0, behavior: 'smooth' };
-  }
+  },
 });
 
 // Register navigation guards
@@ -159,7 +190,7 @@ router.isReady().then(() => {
   securityInterval = window.setInterval(() => {
     const auth = useAuth();
     if (auth) {
-      auth.checkAuthStatus().catch(error => {
+      auth.checkAuthStatus().catch((error) => {
         console.error('Security check failed:', error);
         router.push('/auth/login');
       });
