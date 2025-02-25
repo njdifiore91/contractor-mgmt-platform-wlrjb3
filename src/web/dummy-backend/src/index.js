@@ -524,61 +524,53 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // Routes
-app.get('/api/equipment', (req, res) => {
+app.get('/api/v1/equipment', (req, res) => {
   res.json(equipmentData);
 });
 
-app.get('/api/equipment/:id', (req, res) => {
-  const equipment = equipmentData.find((e) => e.id === parseInt(req.params.id));
-  if (!equipment) {
-    return res.status(404).json({ error: 'Equipment not found' });
-  }
+app.get('/api/v1/equipment/:id', (req, res) => {
+  const equipment = equipmentData.find(e => e.id === parseInt(req.params.id));
+  if (!equipment) return res.status(404).json({ message: 'Equipment not found' });
   res.json(equipment);
 });
 
-app.post('/api/equipment', (req, res) => {
+app.post('/api/v1/equipment', (req, res) => {
   const newEquipment = {
     id: equipmentData.length + 1,
     ...req.body,
-    status: 'available',
+    createdAt: new Date().toISOString(),
+    modifiedAt: new Date().toISOString()
   };
   equipmentData.push(newEquipment);
   res.status(201).json(newEquipment);
 });
 
-app.put('/api/equipment/:id', (req, res) => {
-  const index = equipmentData.findIndex((e) => e.id === parseInt(req.params.id));
-  if (index === -1) {
-    return res.status(404).json({ error: 'Equipment not found' });
-  }
-  equipmentData[index] = { ...equipmentData[index], ...req.body };
+app.put('/api/v1/equipment/:id', (req, res) => {
+  const index = equipmentData.findIndex(e => e.id === parseInt(req.params.id));
+  if (index === -1) return res.status(404).json({ message: 'Equipment not found' });
+  equipmentData[index] = { ...equipmentData[index], ...req.body, modifiedAt: new Date().toISOString() };
   res.json(equipmentData[index]);
 });
 
-app.get('/api/equipment/assignments', (req, res) => {
+app.get('/api/v1/equipment/assignments', (req, res) => {
   res.json(assignments);
 });
 
-app.post('/api/equipment/assignments', (req, res) => {
-  // Add custom audit information
-  req.auditEntityType = 'EQUIPMENT';
-  req.auditAction = 'assign';
-  req.auditEntityId = req.body.equipmentId;
-
+app.post('/api/v1/equipment/assignments', (req, res) => {
   const newAssignment = {
     id: assignments.length + 1,
     ...req.body,
-    assignedDate: new Date().toISOString().split('T')[0],
     status: 'active',
+    assignedDate: new Date().toISOString()
   };
   assignments.push(newAssignment);
-
+  
   // Update equipment status
-  const equipment = equipmentData.find((e) => e.id === req.body.equipmentId);
+  const equipment = equipmentData.find(e => e.id === newAssignment.equipmentId);
   if (equipment) {
-    equipment.status = 'IN_USE';
+    equipment.status = 'in_use';
   }
-
+  
   res.status(201).json(newAssignment);
 });
 
