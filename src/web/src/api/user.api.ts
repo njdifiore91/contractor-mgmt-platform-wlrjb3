@@ -1,242 +1,306 @@
 /**
- * @fileoverview API client module for user management operations with comprehensive security,
- * caching, and error handling features. Implements the user management requirements from
- * the technical specifications.
+ * @fileoverview User API client module providing comprehensive user management operations
+ * with enhanced error handling, validation, retry logic, and logging capabilities.
  * @version 1.0.0
  */
 
-import type { AxiosResponse } from 'axios';
-import CryptoJS from 'crypto-js';
-import type { IUser, IRole } from '@/models/user.model';
-import { UserRoleType } from '@/models/user.model';
+import type { IUser } from '../models/user.model';
 import api from '../utils/api.util';
+import retry from 'axios-retry';
+import rateLimit from 'axios-rate-limit';
+import createError from 'http-errors';
 
-// API endpoint configuration
-const API_BASE_PATH = '/api/v1/users';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const SEARCH_DEBOUNCE_MS = 300;
+// API endpoint constants
+const API_VERSION = 'v1';
+const BASE_URL = import.meta.env.VITE_APP_API_URL || 'http://localhost:8080';
+const API_ENDPOINTS = {
+  USERS: `/api/${API_VERSION}/users`,
+} as const;
 
-// In-memory cache for user data
-const userCache = new Map<number, { data: IUser; timestamp: number }>();
+// Retry configuration for failed requests
+const RETRY_CONFIG = {
+  retries: 3,
+  retryDelay: retry.exponentialDelay,
+  retryCondition: retry.isNetworkOrIdempotentRequestError,
+};
+
+// Rate limiting configuration
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 50,
+  perMilliseconds: 1000,
+};
+
+// Simple logger for browser environment
+const logger = {
+  info: (message: string, ...args: any[]) => {
+    console.log(`[MOCK API] ${message}`, ...args);
+  },
+  error: (message: string, ...args: any[]) => {
+    console.error(`[MOCK API ERROR] ${message}`, ...args);
+  },
+  warn: (message: string, ...args: any[]) => {
+    console.warn(`[MOCK API WARNING] ${message}`, ...args);
+  },
+};
+
+// Dummy data for users
+const dummyUsers: IUser[] = [
+  {
+    id: 1,
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john.doe@example.com',
+    isActive: true,
+    phoneNumber: '+1234567890',
+    azureAdB2CId: 'dummy-azure-id-1',
+    userRoles: [{ id: 1, userId: 1, roleId: 1, assignedAt: new Date(), revokedAt: null }],
+    createdAt: new Date('2024-01-01'),
+    modifiedAt: null,
+    lastLoginAt: new Date('2024-03-15'),
+  },
+  {
+    id: 2,
+    firstName: 'Jane',
+    lastName: 'Smith',
+    email: 'jane.smith@example.com',
+    isActive: true,
+    phoneNumber: '+0987654321',
+    azureAdB2CId: 'dummy-azure-id-2',
+    userRoles: [{ id: 2, userId: 2, roleId: 2, assignedAt: new Date(), revokedAt: null }],
+    createdAt: new Date('2024-01-15'),
+    modifiedAt: null,
+    lastLoginAt: new Date('2024-03-14'),
+  },
+  {
+    id: 3,
+    firstName: 'Mike',
+    lastName: 'Johnson',
+    email: 'mike.johnson@example.com',
+    isActive: false,
+    phoneNumber: '+1122334455',
+    azureAdB2CId: 'dummy-azure-id-3',
+    userRoles: [{ id: 3, userId: 3, roleId: 3, assignedAt: new Date(), revokedAt: null }],
+    createdAt: new Date('2024-02-01'),
+    modifiedAt: null,
+    lastLoginAt: new Date('2024-03-10'),
+  },
+];
 
 /**
- * Error class for user-related API errors
+ * User API client class providing comprehensive user management operations
+ * with error handling, validation, and logging capabilities.
  */
-export class UserApiError extends Error {
-    constructor(
-        message: string,
-        public statusCode: number,
-        public details?: Record<string, unknown>
-    ) {
-        super(message);
-        this.name = 'UserApiError';
-    }
-}
+export class UserApiClient {
+  constructor() {
+    // Configure retry and rate limiting
+    retry(api, RETRY_CONFIG);
+    rateLimit(api, RATE_LIMIT_CONFIG);
+  }
 
-/**
- * Interface for user search parameters
- */
-export interface UserSearchParams {
+  /**
+   * Retrieves a list of users with pagination and filtering
+   * @param params Query parameters for filtering and pagination
+   * @returns Promise resolving to array of users and total count
+   * @throws {ApiError} If the request fails
+   */
+  async getUsers(params: {
+    pageNumber: number;
+    pageSize: number;
     searchTerm?: string;
     isActive?: boolean;
-    roles?: UserRoleType[];
-    sortBy?: keyof IUser;
+    sortBy?: string;
     sortOrder?: 'asc' | 'desc';
-    cursor?: string;
-    pageSize: number;
-}
-
-/**
- * Interface for user search response
- */
-export interface UserSearchResponse {
-    users: IUser[];
-    nextCursor?: string;
-    total: number;
-}
-
-/**
- * Interface for user creation data
- */
-export interface CreateUserData {
-    email: string;
-    firstName: string;
-    lastName: string;
-    phoneNumber?: string;
-    azureAdB2CId: string;
-    roles: UserRoleType[];
-}
-
-/**
- * Interface for user update data
- */
-export interface UpdateUserData {
-    firstName?: string;
-    lastName?: string;
-    phoneNumber?: string;
-    roles?: UserRoleType[];
-    isActive?: boolean;
-}
-
-/**
- * Retrieves a user by their unique identifier with caching
- * @param id User identifier
- * @returns Promise resolving to user details
- * @throws UserApiError if user not found or request fails
- */
-export async function getUserById(id: number): Promise<IUser> {
-    // Check cache first
-    const cached = userCache.get(id);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        return cached.data;
-    }
-
+  }): Promise<{ users: IUser[]; total: number }> {
     try {
-        const response = await api.get<IUser>(`${API_BASE_PATH}/${id}`);
-        
-        // Cache successful response
-        userCache.set(id, {
-            data: response.data,
-            timestamp: Date.now()
-        });
-        
-        return response.data;
-    } catch (error: any) {
-        if (error.response?.status === 404) {
-            throw new UserApiError('User not found', 404);
-        }
-        throw new UserApiError(
-            'Failed to retrieve user',
-            error.response?.status || 500,
-            error.response?.data
-        );
-    }
-}
+      logger.info('GET /api/v1/users', params);
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-/**
- * Searches for users with advanced filtering and cursor-based pagination
- * @param params Search parameters
- * @returns Promise resolving to paginated user search results
- * @throws UserApiError if search request fails
- */
-export async function searchUsers(params: UserSearchParams): Promise<UserSearchResponse> {
+      let filteredUsers = [...dummyUsers];
+
+      // Apply search term filter
+      if (params.searchTerm) {
+        const term = params.searchTerm.toLowerCase();
+        filteredUsers = filteredUsers.filter(
+          (user) =>
+            user.firstName.toLowerCase().includes(term) ||
+            user.lastName.toLowerCase().includes(term) ||
+            user.email.toLowerCase().includes(term)
+        );
+      }
+
+      // Apply active status filter
+      if (typeof params.isActive === 'boolean') {
+        filteredUsers = filteredUsers.filter((user) => user.isActive === params.isActive);
+      }
+
+      // Sort users
+      const sortField = params.sortBy || 'lastName';
+      const sortOrder = params.sortOrder === 'desc' ? -1 : 1;
+      filteredUsers.sort((a, b) => {
+        const aValue = a[sortField as keyof IUser];
+        const bValue = b[sortField as keyof IUser];
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return sortOrder * aValue.localeCompare(bValue);
+        }
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortOrder * (aValue - bValue);
+        }
+        return 0;
+      });
+
+      // Calculate total before pagination
+      const total = filteredUsers.length;
+
+      // Apply pagination
+      const start = (params.pageNumber - 1) * params.pageSize;
+      const end = start + params.pageSize;
+      const users = filteredUsers.slice(start, end);
+
+      logger.info('Response:', { total, users: users.length });
+      return { users, total };
+    } catch (error) {
+      logger.error('Failed to fetch users list', { error, params });
+      throw createError(500, 'Failed to fetch users list', { cause: error });
+    }
+  }
+
+  /**
+   * Creates a new user
+   * @param userData User data to create
+   * @returns Promise resolving to created user
+   * @throws {ApiError} If the request fails or validation errors occur
+   */
+  async createUser(userData: Partial<IUser>): Promise<IUser> {
     try {
-        const response = await api.get<UserSearchResponse>(API_BASE_PATH, {
-            params: {
-                q: params.searchTerm,
-                active: params.isActive,
-                roles: params.roles?.join(','),
-                sort: params.sortBy,
-                order: params.sortOrder,
-                cursor: params.cursor,
-                limit: params.pageSize
-            }
-        });
+      logger.info('POST /api/v1/users', { userData });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-        return response.data;
-    } catch (error: any) {
-        throw new UserApiError(
-            'Failed to search users',
-            error.response?.status || 500,
-            error.response?.data
-        );
+      // Validate required fields
+      if (!userData.firstName || !userData.lastName || !userData.email) {
+        throw new Error('Missing required fields');
+      }
+
+      const newUser: IUser = {
+        id: Math.max(...dummyUsers.map((u) => u.id)) + 1,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        isActive: userData.isActive ?? true,
+        phoneNumber: userData.phoneNumber || null,
+        azureAdB2CId: userData.azureAdB2CId || '',
+        userRoles:
+          userData.userRoles?.map((role) => ({
+            id: Math.random(),
+            userId: 0, // Will be set after creation
+            roleId: role.roleId,
+            assignedAt: new Date(),
+            revokedAt: null,
+          })) || [],
+        createdAt: new Date(),
+        modifiedAt: null,
+        lastLoginAt: null,
+      };
+
+      // Update userId in roles
+      newUser.userRoles = newUser.userRoles.map((role) => ({
+        ...role,
+        userId: newUser.id,
+      }));
+
+      dummyUsers.push(newUser);
+      logger.info('Response:', { newUser });
+      return newUser;
+    } catch (error) {
+      logger.error('Failed to create user', { error, userData });
+      throw createError(400, 'Failed to create user', { cause: error });
     }
-}
+  }
 
-/**
- * Creates a new user with secure PII handling
- * @param userData User creation data
- * @returns Promise resolving to created user identifiers
- * @throws UserApiError if user creation fails
- */
-export async function createUser(userData: CreateUserData): Promise<{ id: number; azureAdB2CId: string }> {
+  /**
+   * Updates an existing user
+   * @param id User identifier
+   * @param updates Updated user data
+   * @returns Promise resolving to updated user
+   * @throws {ApiError} If the request fails or user is not found
+   */
+  async updateUser(id: number, updates: Partial<IUser>): Promise<IUser> {
     try {
-        // Encrypt sensitive PII data
-        const encryptedData = {
-            ...userData,
-            firstName: CryptoJS.AES.encrypt(userData.firstName, 'secretKey').toString(),
-            lastName: CryptoJS.AES.encrypt(userData.lastName, 'secretKey').toString(),
-            phoneNumber: userData.phoneNumber ? CryptoJS.AES.encrypt(userData.phoneNumber, 'secretKey').toString() : undefined
-        };
+      logger.info('PUT /api/v1/users/' + id, { updates });
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-        const response = await api.post<{ id: number; azureAdB2CId: string }>(
-            API_BASE_PATH,
-            encryptedData
-        );
+      const userIndex = dummyUsers.findIndex((user) => user.id === id);
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
 
-        return response.data;
-    } catch (error: any) {
-        if (error.response?.status === 409) {
-            throw new UserApiError('User already exists', 409);
-        }
-        throw new UserApiError(
-            'Failed to create user',
-            error.response?.status || 500,
-            error.response?.data
-        );
+      const updatedUser: IUser = {
+        ...dummyUsers[userIndex],
+        firstName: updates.firstName || dummyUsers[userIndex].firstName,
+        lastName: updates.lastName || dummyUsers[userIndex].lastName,
+        email: updates.email || dummyUsers[userIndex].email,
+        isActive: updates.isActive ?? dummyUsers[userIndex].isActive,
+        phoneNumber: updates.phoneNumber ?? dummyUsers[userIndex].phoneNumber,
+        azureAdB2CId: updates.azureAdB2CId || dummyUsers[userIndex].azureAdB2CId,
+        userRoles:
+          updates.userRoles?.map((role) => ({
+            id: Math.random(),
+            userId: id,
+            roleId: role.roleId,
+            assignedAt: new Date(),
+            revokedAt: null,
+          })) || dummyUsers[userIndex].userRoles,
+        modifiedAt: new Date(),
+      };
+
+      dummyUsers[userIndex] = updatedUser;
+      logger.info('Response:', { updatedUser });
+      return updatedUser;
+    } catch (error) {
+      logger.error('Failed to update user', { error, id, updates });
+      throw createError(400, 'Failed to update user', { cause: error });
     }
-}
+  }
 
-/**
- * Updates an existing user's profile with optimistic updates
- * @param id User identifier
- * @param userData User update data
- * @returns Promise resolving to void on success
- * @throws UserApiError if update fails
- */
-export async function updateUser(id: number, userData: UpdateUserData): Promise<void> {
-    // Get current cache entry
-    const cached = userCache.get(id);
-    
+  /**
+   * Deletes a user
+   * @param id User identifier
+   * @throws {ApiError} If the request fails or user is not found
+   */
+  async deleteUser(id: number): Promise<void> {
     try {
-        // Encrypt sensitive PII data
-        const encryptedData = {
-            ...userData,
-            firstName: userData.firstName ? CryptoJS.AES.encrypt(userData.firstName, 'secretKey').toString() : undefined,
-            lastName: userData.lastName ? CryptoJS.AES.encrypt(userData.lastName, 'secretKey').toString() : undefined,
-            phoneNumber: userData.phoneNumber ? CryptoJS.AES.encrypt(userData.phoneNumber, 'secretKey').toString() : undefined
-        };
+      logger.info('DELETE /api/v1/users/' + id);
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-        // Optimistically update cache
-        if (cached) {
-            userCache.set(id, {
-                data: { ...cached.data, ...userData },
-                timestamp: Date.now()
-            });
-        }
+      const userIndex = dummyUsers.findIndex((user) => user.id === id);
+      if (userIndex === -1) {
+        throw new Error('User not found');
+      }
 
-        await api.put(`${API_BASE_PATH}/${id}`, encryptedData);
-    } catch (error: any) {
-        // Rollback cache on failure
-        if (cached) {
-            userCache.set(id, cached);
-        }
-
-        if (error.response?.status === 404) {
-            throw new UserApiError('User not found', 404);
-        }
-        if (error.response?.status === 409) {
-            throw new UserApiError('Concurrent update detected', 409);
-        }
-        throw new UserApiError(
-            'Failed to update user',
-            error.response?.status || 500,
-            error.response?.data
-        );
+      dummyUsers.splice(userIndex, 1);
+      logger.info('Response: User deleted successfully');
+    } catch (error) {
+      logger.error('Failed to delete user', { error, id });
+      throw createError(400, 'Failed to delete user', { cause: error });
     }
+  }
 }
 
-/**
- * Invalidates the cache entry for a specific user
- * @param id User identifier
- */
-export function invalidateUserCache(id: number): void {
-    userCache.delete(id);
-}
+// Export singleton instance
+const userApiClient = new UserApiClient();
+export default userApiClient;
 
-/**
- * Clears the entire user cache
- */
-export function clearUserCache(): void {
-    userCache.clear();
-}
+// Export individual functions for convenience
+export const getUsers = (params: Parameters<UserApiClient['getUsers']>[0]) =>
+  userApiClient.getUsers(params);
+
+export const createUser = (userData: Parameters<UserApiClient['createUser']>[0]) =>
+  userApiClient.createUser(userData);
+
+export const updateUser = (id: number, updates: Parameters<UserApiClient['updateUser']>[1]) =>
+  userApiClient.updateUser(id, updates);
+
+export const deleteUser = (id: number) => userApiClient.deleteUser(id);

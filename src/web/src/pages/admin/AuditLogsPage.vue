@@ -65,7 +65,7 @@
           <q-table
             :rows="filteredLogs"
             :columns="columns"
-            :loading="isLoading"
+            :loading="loading"
             row-key="id"
             :pagination="pagination"
             @update:pagination="handlePaginationUpdate"
@@ -101,23 +101,57 @@
               <q-card>
                 <q-card-section>
                   <div class="text-h6">Actions by Type</div>
-                  <canvas ref="actionChart"></canvas>
+                  <div class="q-pa-md">
+                    <div
+                      v-for="(count, action) in statistics?.actionDistribution"
+                      :key="action"
+                      class="q-mb-sm"
+                    >
+                      <div class="row items-center">
+                        <div class="col-6">{{ action }}</div>
+                        <div class="col-6">
+                          <q-linear-progress
+                            :value="
+                              count /
+                              Math.max(...Object.values(statistics?.actionDistribution || {}))
+                            "
+                            :color="getActionColor(action)"
+                            class="q-mt-sm"
+                          />
+                        </div>
+                      </div>
+                      <div class="text-caption text-right">{{ count }} actions</div>
+                    </div>
+                  </div>
                 </q-card-section>
               </q-card>
             </div>
             <div class="col-12 col-md-6">
               <q-card>
                 <q-card-section>
-                  <div class="text-h6">Activity Over Time</div>
-                  <canvas ref="timelineChart"></canvas>
-                </q-card-section>
-              </q-card>
-            </div>
-            <div class="col-12">
-              <q-card>
-                <q-card-section>
                   <div class="text-h6">Entity Type Distribution</div>
-                  <canvas ref="entityChart"></canvas>
+                  <div class="q-pa-md">
+                    <div
+                      v-for="(count, entity) in statistics?.entityDistribution"
+                      :key="entity"
+                      class="q-mb-sm"
+                    >
+                      <div class="row items-center">
+                        <div class="col-6">{{ entity }}</div>
+                        <div class="col-6">
+                          <q-linear-progress
+                            :value="
+                              count /
+                              Math.max(...Object.values(statistics?.entityDistribution || {}))
+                            "
+                            color="primary"
+                            class="q-mt-sm"
+                          />
+                        </div>
+                      </div>
+                      <div class="text-caption text-right">{{ count }} records</div>
+                    </div>
+                  </div>
                 </q-card-section>
               </q-card>
             </div>
@@ -146,24 +180,18 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed, watch, onUnmounted } from 'vue';
-  import { useAuditLog } from '@/composables/useAuditLog';
+  import { ref, onMounted, computed, watch } from 'vue';
   import { formatDate } from '@/utils/date.util';
-  import { Chart } from 'chart.js/auto';
-  import type { ChartConfiguration } from 'chart.js';
   import { useQuasar } from 'quasar';
+  import { useAuditStore } from '@/stores/audit.store';
 
   const $q = useQuasar();
-  const { logs, total, isLoading, error, fetchLogs, statistics } = useAuditLog();
+  const auditStore = useAuditStore();
 
   // State
   const activeTab = ref('logs');
   const showDetailsDialog = ref(false);
   const selectedLogDetails = ref<string | null>(null);
-  const actionChart = ref<HTMLCanvasElement | null>(null);
-  const timelineChart = ref<HTMLCanvasElement | null>(null);
-  const entityChart = ref<HTMLCanvasElement | null>(null);
-  let charts: Chart[] = [];
 
   const filters = ref({
     search: '',
@@ -234,6 +262,12 @@
   ];
 
   // Computed properties
+  const logs = computed(() => auditStore.logs);
+  const total = computed(() => auditStore.total);
+  const loading = computed(() => auditStore.loading);
+  const error = computed(() => auditStore.error);
+  const statistics = computed(() => auditStore.statistics);
+
   const filteredLogs = computed(() => {
     let filtered = [...logs.value];
 
@@ -264,10 +298,19 @@
 
   // Methods
   const handleSearch = async () => {
-    await fetchLogs(filters.value, {
+    const searchFilters = {
+      search: filters.value.search,
+      entityType: filters.value.entityType || undefined,
+      action: filters.value.action || undefined,
+      startDate: filters.value.startDate || undefined,
+      endDate: filters.value.endDate || undefined,
+    };
+
+    await auditStore.fetchLogs(searchFilters, {
       page: pagination.value.page,
       rowsPerPage: pagination.value.rowsPerPage,
     });
+    pagination.value.rowsNumber = total.value;
   };
 
   const handleFilterChange = async () => {
@@ -305,181 +348,26 @@
     return colors[action] || 'grey';
   };
 
-  // Chart rendering functions
-  const renderActionChart = () => {
-    if (!actionChart.value || !statistics.value) return;
-
-    const { actionDistribution } = statistics.value;
-    const data = {
-      labels: Object.keys(actionDistribution),
-      datasets: [
-        {
-          data: Object.values(actionDistribution),
-          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
-        },
-      ],
-    };
-
-    const config: ChartConfiguration = {
-      type: 'pie',
-      data,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'bottom',
-          },
-          title: {
-            display: true,
-            text: 'Actions Distribution',
-          },
-        },
-      },
-    };
-
-    charts.push(new Chart(actionChart.value, config));
-  };
-
-  const renderTimelineChart = () => {
-    if (!timelineChart.value || !statistics.value) return;
-
-    const { timeline } = statistics.value;
-    const data = {
-      labels: Object.keys(timeline),
-      datasets: [
-        {
-          label: 'Activity',
-          data: Object.values(timeline),
-          fill: false,
-          borderColor: '#36A2EB',
-          tension: 0.1,
-        },
-      ],
-    };
-
-    const config: ChartConfiguration = {
-      type: 'line',
-      data,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'bottom',
-          },
-          title: {
-            display: true,
-            text: 'Activity Timeline',
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
-      },
-    };
-
-    charts.push(new Chart(timelineChart.value, config));
-  };
-
-  const renderEntityChart = () => {
-    if (!entityChart.value || !statistics.value) return;
-
-    const { entityDistribution } = statistics.value;
-    const data = {
-      labels: Object.keys(entityDistribution),
-      datasets: [
-        {
-          data: Object.values(entityDistribution),
-          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
-        },
-      ],
-    };
-
-    const config: ChartConfiguration = {
-      type: 'doughnut',
-      data,
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: 'bottom',
-          },
-          title: {
-            display: true,
-            text: 'Entity Type Distribution',
-          },
-        },
-      },
-    };
-
-    charts.push(new Chart(entityChart.value, config));
-  };
-
-  // Update chart rendering when tab changes or data updates
-  watch(
-    () => activeTab.value,
-    async (newTab) => {
-      if (newTab === 'statistics') {
-        // Clear existing charts
-        charts.forEach((chart) => chart.destroy());
-        charts = [];
-
-        // Render new charts
-        renderActionChart();
-        renderTimelineChart();
-        renderEntityChart();
-      }
-    }
-  );
-
-  watch(
-    () => statistics.value,
-    () => {
-      if (activeTab.value === 'statistics') {
-        // Clear existing charts
-        charts.forEach((chart) => chart.destroy());
-        charts = [];
-
-        // Render new charts
-        renderActionChart();
-        renderTimelineChart();
-        renderEntityChart();
-      }
-    },
-    { deep: true }
-  );
-
-  // Watch for filter changes
-  watch(
-    () => [filters.value.search, filters.value.entityType, filters.value.action],
-    () => {
-      handleFilterChange();
-    },
-    { deep: true }
-  );
-
-  // Clean up charts when component is unmounted
-  onUnmounted(() => {
-    charts.forEach((chart) => chart.destroy());
-    charts = [];
-  });
-
+  // Lifecycle hooks
   onMounted(async () => {
     try {
       await handleSearch();
       if (activeTab.value === 'statistics') {
-        renderActionChart();
-        renderTimelineChart();
-        renderEntityChart();
+        await auditStore.fetchStatistics();
       }
     } catch (error) {
-      console.error('Error loading initial data:', error);
+      console.error('Error initializing audit logs page:', error);
       $q.notify({
         type: 'negative',
-        message: 'Failed to load initial data',
+        message: 'Failed to load audit data',
         position: 'top',
       });
+    }
+  });
+
+  watch(activeTab, async (newTab) => {
+    if (newTab === 'statistics') {
+      await auditStore.fetchStatistics();
     }
   });
 </script>
@@ -501,11 +389,6 @@
       padding: 10px;
       border-radius: 4px;
       font-family: monospace;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 300px !important;
     }
   }
 </style>

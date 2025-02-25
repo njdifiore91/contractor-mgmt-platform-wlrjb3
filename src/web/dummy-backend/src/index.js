@@ -12,10 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/audit', auditRoutes);
-
 // Dummy data
 const equipmentData = [
   {
@@ -809,9 +805,7 @@ app.delete('/api/v1/customers/:id', (req, res) => {
   }
   customerData.splice(index, 1);
   res.status(204).send();
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/audit', auditRoutes);
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -821,6 +815,10 @@ app.use((err, req, res, next) => {
     error: process.env.NODE_ENV === 'development' ? err.message : undefined,
   });
 });
+
+// Routes
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/audit', auditRoutes);
 
 // Start server
 app.listen(PORT, () => {

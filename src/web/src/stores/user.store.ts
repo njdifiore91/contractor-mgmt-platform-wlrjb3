@@ -4,22 +4,15 @@
  * @version 1.0.0
  */
 
-import { defineStore } from 'pinia'; // ^2.1.0
-import { storeToRefs } from 'pinia'; // ^2.1.0
-import { debounce } from 'lodash'; // ^4.17.21
-import { useEncryption } from '@/composables/useEncryption';
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
 import type { IUser } from '@/models/user.model';
-import type { ISearchParams } from '@/models/search.model';
+import { getUsers, createUser, updateUser, deleteUser } from '@/api/user.api';
 import { useNotificationStore } from './notification.store';
-import axios from 'axios';
 
-// Constants
-const DEFAULT_PAGE_SIZE = 20;
-const DEBOUNCE_DELAY = 300;
-const CACHE_DURATION = 300000; // 5 minutes in milliseconds
-const API_BASE_URL = '/api'; // Changed to relative path
+// Constants for store configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Types
 interface SearchParams {
   pageNumber: number;
   pageSize: number;
@@ -29,311 +22,144 @@ interface SearchParams {
   sortOrder: 'asc' | 'desc';
 }
 
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
-
-interface UserState {
-  users: IUser[];
-  loading: boolean;
-  error: boolean;
-  errorMessage: string;
-  searchParams: SearchParams;
-  totalCount: number;
-  selectedUser: IUser | null;
-  cache: Record<string, CacheEntry<IUser[]>>;
-  pendingUpdates: Map<string | number, Partial<IUser>>;
-}
-
-const { encrypt } = useEncryption();
-
-// Dummy user data
-const dummyUsers: IUser[] = [
-  {
-    id: 1,
-    firstName: 'John',
-    lastName: 'Doe',
-    email: encrypt('john.doe@example.com'),
+export const useUserStore = defineStore('user', () => {
+  // State initialization
+  const users = ref<IUser[]>([]);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+  const searchParams = ref<SearchParams>({
+    pageNumber: 1,
+    pageSize: 20,
+    searchTerm: '',
     isActive: true,
-    userRoles: [{ roleId: 1 }], // Admin
-    emailPreferences: ['daily', 'weekly'],
-    createdAt: new Date('2024-01-01'),
-    lastLoginAt: new Date('2024-03-15'),
-  },
-  {
-    id: 2,
-    firstName: 'Jane',
-    lastName: 'Smith',
-    email: encrypt('jane.smith@example.com'),
-    isActive: true,
-    userRoles: [{ roleId: 2 }], // Operations
-    emailPreferences: ['weekly'],
-    createdAt: new Date('2024-01-15'),
-    lastLoginAt: new Date('2024-03-14'),
-  },
-  {
-    id: 3,
-    firstName: 'Mike',
-    lastName: 'Johnson',
-    email: encrypt('mike.johnson@example.com'),
-    isActive: false,
-    userRoles: [{ roleId: 3 }], // Inspector
-    emailPreferences: ['monthly'],
-    createdAt: new Date('2024-02-01'),
-    lastLoginAt: new Date('2024-03-10'),
-  },
-];
+    sortBy: 'lastName',
+    sortOrder: 'asc',
+  });
+  const total = ref<number>(0);
+  const selectedUser = ref<IUser | null>(null);
+  const lastSync = ref<Date | null>(null);
 
-// Store implementation
-export const useUserStore = defineStore('user', {
-  state: (): UserState => ({
-    users: [],
-    loading: false,
-    error: false,
-    errorMessage: '',
-    searchParams: {
-      pageNumber: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-      searchTerm: '',
-      isActive: true,
-      sortBy: 'lastName',
-      sortOrder: 'asc',
-    },
-    totalCount: 0,
-    selectedUser: null,
-    cache: {},
-    pendingUpdates: new Map(),
-  }),
+  // Store instance for notifications
+  const notificationStore = useNotificationStore();
 
-  getters: {
-    /**
-     * Returns users with decrypted PII data for display
-     */
-    decryptedUsers(): IUser[] {
-      const { decrypt } = useEncryption();
-      return this.users.map((user) => ({
-        ...user,
-        email: decrypt(user.email),
-        phoneNumber: user.phoneNumber ? decrypt(user.phoneNumber) : null,
-      }));
-    },
+  // Computed properties
+  const isCacheValid = computed(() => {
+    if (!lastSync.value) return false;
+    return new Date().getTime() - lastSync.value.getTime() < CACHE_DURATION;
+  });
 
-    /**
-     * Returns active users only
-     */
-    activeUsers(): IUser[] {
-      return this.users.filter((user) => user.isActive);
-    },
+  const activeUsers = computed(() => users.value.filter((user) => user.isActive));
 
-    /**
-     * Generates cache key based on search parameters
-     */
-    cacheKey(): string {
-      return JSON.stringify(this.searchParams);
-    },
-  },
+  // Actions
+  const fetchUsers = async (params: Partial<SearchParams> = {}, forceRefresh = false) => {
+    if (!forceRefresh && isCacheValid.value) {
+      return { users: users.value, total: total.value };
+    }
 
-  actions: {
-    /**
-     * Fetches users based on search parameters with caching
-     */
-    async fetchUsers(params: any = {}) {
-      try {
-        this.loading = true;
-        this.error = false;
+    loading.value = true;
+    error.value = null;
 
-        // Filter and sort dummy data
-        let filteredUsers = [...dummyUsers];
+    try {
+      const mergedParams = { ...searchParams.value, ...params };
+      const response = await getUsers(mergedParams);
+      users.value = response.users;
+      total.value = response.total;
+      lastSync.value = new Date();
 
-        if (params.searchTerm) {
-          const term = params.searchTerm.toLowerCase();
-          filteredUsers = filteredUsers.filter(
-            (user) =>
-              user.firstName.toLowerCase().includes(term) ||
-              user.lastName.toLowerCase().includes(term)
-          );
-        }
-
-        if (typeof params.isActive === 'boolean') {
-          filteredUsers = filteredUsers.filter((user) => user.isActive === params.isActive);
-        }
-
-        // Sort users
-        const sortField = params.sortBy || 'lastName';
-        const sortOrder = params.sortOrder === 'desc' ? -1 : 1;
-        filteredUsers.sort((a, b) => {
-          return sortOrder * a[sortField].localeCompare(b[sortField]);
-        });
-
-        // Apply pagination
-        const start = (params.pageNumber - 1) * params.pageSize;
-        const end = start + params.pageSize;
-        this.users = filteredUsers.slice(start, end);
-      } catch (error: any) {
-        this.error = true;
-        this.errorMessage = error.message;
-        throw error;
-      } finally {
-        this.loading = false;
+      if (forceRefresh) {
+        notificationStore.success('Users list updated successfully');
       }
-    },
 
-    /**
-     * Fetches a single user by ID
-     */
-    async fetchUserById(id: number): Promise<void> {
-      try {
-        this.loading = true;
-        const response = await axios.get(`${API_BASE_URL}/users/${id}`);
-        this.selectedUser = response.data;
-      } catch (error) {
-        this.handleError(`Error fetching user ${id}`, error);
-      } finally {
-        this.loading = false;
+      return response;
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to fetch users: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createNewUser = async (userData: Partial<IUser>): Promise<IUser> => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const newUser = await createUser(userData);
+      users.value.push(newUser);
+      total.value++;
+      notificationStore.success('User created successfully');
+      return newUser;
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to create user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const updateExistingUser = async (id: number, updates: Partial<IUser>): Promise<void> => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const updatedUser = await updateUser(id, updates);
+      const index = users.value.findIndex((user) => user.id === id);
+      if (index !== -1) {
+        users.value[index] = updatedUser;
       }
-    },
+      notificationStore.success('User updated successfully');
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to update user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
 
-    /**
-     * Creates a new user with encrypted PII data
-     */
-    async createUser(userData: Partial<IUser>): Promise<IUser> {
-      try {
-        this.loading = true;
-        this.error = false;
+  const removeUser = async (id: number): Promise<void> => {
+    loading.value = true;
+    error.value = null;
 
-        // Create new user with encrypted email
-        const newUser: IUser = {
-          id: dummyUsers.length + 1,
-          firstName: userData.firstName || '',
-          lastName: userData.lastName || '',
-          email: encrypt(userData.email || ''),
-          isActive: true,
-          userRoles: userData.userRoles || [],
-          emailPreferences: userData.emailPreferences || [],
-          createdAt: new Date(),
-          lastLoginAt: null,
-        };
+    try {
+      await deleteUser(id);
+      users.value = users.value.filter((user) => user.id !== id);
+      total.value--;
+      notificationStore.success('User deleted successfully');
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to delete user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
 
-        // Add to dummy data
-        dummyUsers.push(newUser);
+  const clearCache = () => {
+    lastSync.value = null;
+  };
 
-        // Update local state
-        this.users = [...this.users, newUser];
+  return {
+    // State
+    users,
+    loading,
+    error,
+    searchParams,
+    total,
+    selectedUser,
+    lastSync,
 
-        return newUser;
-      } catch (error: any) {
-        this.error = true;
-        this.errorMessage = error.message;
-        throw error;
-      } finally {
-        this.loading = false;
-      }
-    },
+    // Getters
+    isCacheValid,
+    activeUsers,
 
-    /**
-     * Updates user with optimistic updates and rollback
-     */
-    async updateUser(id: string | number, updates: Partial<IUser>): Promise<void> {
-      try {
-        this.loading = true;
-        this.error = false;
-
-        // Find user in dummy data
-        const userIndex = dummyUsers.findIndex((user) => user.id === id);
-        if (userIndex === -1) {
-          throw new Error('User not found');
-        }
-
-        // Update user with encrypted email if provided
-        const updatedUser = {
-          ...dummyUsers[userIndex],
-          ...updates,
-          email: updates.email ? encrypt(updates.email) : dummyUsers[userIndex].email,
-        };
-
-        // Update dummy data
-        dummyUsers[userIndex] = updatedUser;
-
-        // Update local state
-        const localIndex = this.users.findIndex((user) => user.id === id);
-        if (localIndex !== -1) {
-          this.users[localIndex] = updatedUser;
-        }
-      } catch (error: any) {
-        this.error = true;
-        this.errorMessage = error.message;
-        throw error;
-      } finally {
-        this.loading = false;
-      }
-    },
-
-    /**
-     * Updates search parameters with debounced search
-     */
-    setSearchParams: debounce(function (this: any, params: Partial<SearchParams>) {
-      this.searchParams = { ...this.searchParams, ...params };
-      this.fetchUsers(this.searchParams as ISearchParams);
-    }, DEBOUNCE_DELAY),
-
-    /**
-     * Invalidates the cache for a specific key or all cache
-     */
-    invalidateCache() {
-      this.cache = {};
-    },
-
-    /**
-     * Handles errors with proper logging and notification
-     */
-    handleError(message: string, error: any): void {
-      console.error(`${message}:`, error);
-      this.error = true;
-      this.errorMessage = error.message || 'An unexpected error occurred';
-      useNotificationStore().error(this.errorMessage);
-    },
-
-    /**
-     * Resets store state to initial values
-     */
-    resetState(): void {
-      this.users = [];
-      this.loading = false;
-      this.error = false;
-      this.errorMessage = '';
-      this.selectedUser = null;
-      this.totalCount = 0;
-      this.cache = {};
-      this.pendingUpdates.clear();
-    },
-
-    /**
-     * Deletes a user with proper error handling and cache invalidation
-     */
-    async deleteUser(id: string | number): Promise<void> {
-      try {
-        this.loading = true;
-        this.error = false;
-
-        // Find user in dummy data
-        const userIndex = dummyUsers.findIndex((user) => user.id === id);
-        if (userIndex === -1) {
-          throw new Error('User not found');
-        }
-
-        // Remove from dummy data
-        dummyUsers.splice(userIndex, 1);
-
-        // Update local state
-        this.users = this.users.filter((user) => user.id !== id);
-      } catch (error: any) {
-        this.error = true;
-        this.errorMessage = error.message;
-        throw error;
-      } finally {
-        this.loading = false;
-      }
-    },
-  },
+    // Actions
+    fetchUsers,
+    createNewUser,
+    updateExistingUser,
+    removeUser,
+    clearCache,
+  };
 });

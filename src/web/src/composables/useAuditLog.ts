@@ -1,58 +1,23 @@
 /**
- * @fileoverview Vue.js composable for audit logging functionality
+ * @fileoverview Vue.js composable for audit logging functionality using the audit API client
  * @version 1.0.0
  */
 
-import { ref, computed } from 'vue';
-import axios from 'axios';
-
-interface AuditLogEntry {
-  id: string;
-  entityType: string;
-  entityId: string;
-  action: string;
-  performedBy: string;
-  performedAt: Date;
-  details: Record<string, unknown>;
-  ipAddress?: string;
-  userAgent?: string;
-  status: 'success' | 'error';
-}
-
-interface AuditLogFilters {
-  entityType?: string | null;
-  action?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
-  search?: string | null;
-}
-
-interface AuditLogPagination {
-  page: number;
-  rowsPerPage: number;
-}
-
-interface AuditLogResponse {
-  logs: AuditLogEntry[];
-  total: number;
-}
-
-interface AuditStatistics {
-  actionDistribution: Record<string, number>;
-  entityDistribution: Record<string, number>;
-  timeline: Record<string, number>;
-  topUsers: Array<{ user: string; count: number }>;
-  errorRate: number;
-}
-
-// API endpoint configuration
-const DUMMY_API_BASE = 'http://localhost:8000/api';
+import { ref } from 'vue';
+import type {
+  AuditLogEntry,
+  AuditLogFilters,
+  AuditLogPagination,
+  AuditStatistics,
+} from '../models/audit.model';
+import auditApiClient from '../api/audit.api';
 
 export function useAuditLog() {
   const logs = ref<AuditLogEntry[]>([]);
   const total = ref<number>(0);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
+  const statistics = ref<AuditStatistics | null>(null);
 
   const fetchLogs = async (
     filters: AuditLogFilters = {},
@@ -62,22 +27,9 @@ export function useAuditLog() {
       isLoading.value = true;
       error.value = null;
 
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        rowsPerPage: pagination.rowsPerPage.toString(),
-        ...(filters.entityType && { entityType: filters.entityType }),
-        ...(filters.action && { action: filters.action }),
-        ...(filters.startDate && { startDate: filters.startDate }),
-        ...(filters.endDate && { endDate: filters.endDate }),
-        ...(filters.search && { search: filters.search }),
-      });
-
-      const response = await axios.get<AuditLogResponse>(`${DUMMY_API_BASE}/audit/logs?${params}`);
-      logs.value = response.data.logs.map((log) => ({
-        ...log,
-        performedAt: new Date(log.performedAt),
-      }));
-      total.value = response.data.total;
+      const response = await auditApiClient.getAuditLogs(filters, pagination);
+      logs.value = response.logs;
+      total.value = response.total;
     } catch (err) {
       console.error('Error fetching audit logs:', err);
       error.value = 'Failed to fetch audit logs';
@@ -92,8 +44,9 @@ export function useAuditLog() {
       isLoading.value = true;
       error.value = null;
 
-      const response = await axios.get<AuditStatistics>(`${DUMMY_API_BASE}/audit/statistics`);
-      return response.data;
+      const stats = await auditApiClient.getAuditStatistics();
+      statistics.value = stats;
+      return stats;
     } catch (err) {
       console.error('Error fetching audit statistics:', err);
       error.value = 'Failed to fetch audit statistics';
@@ -108,6 +61,7 @@ export function useAuditLog() {
     total,
     isLoading,
     error,
+    statistics,
     fetchLogs,
     fetchStatistics,
   };

@@ -10,7 +10,7 @@ interface AuditLogPayload {
 
 export class AuditService {
   private static instance: AuditService;
-  private readonly endpoint = '/api/audit/logs';
+  private readonly endpoint = '/api/v1/audit/logs';
 
   private constructor() {}
 
