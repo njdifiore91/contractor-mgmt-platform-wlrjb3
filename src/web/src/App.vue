@@ -1,5 +1,5 @@
 <template>
-  <q-app class="app-root" :class="{ 'dark-mode': isDarkMode }">
+  <div id="q-app" class="app-root" :class="{ 'dark-mode': isDarkMode }">
     <!-- Layout System -->
     <component :is="determineLayout" v-if="layoutReady" @security-event="handleSecurityEvent" />
 
@@ -10,7 +10,7 @@
     <a href="#main-content" class="skip-link" @click.prevent="skipToContent">
       Skip to main content
     </a>
-  </q-app>
+  </div>
 </template>
 
 <script lang="ts">

@@ -1,0 +1,161 @@
+{
+  "equipment": {
+    "search": {
+      "placeholder": "Search equipment...",
+      "icon": "search",
+      "label": "Search equipment"
+    },
+    "type": "Equipment Type",
+    "filters": {
+      "available_only": "Available Only"
+    },
+    "fields": {
+      "serial_number": "Serial Number",
+      "type": "Type",
+      "model": "Model",
+      "status": "Status",
+      "last_maintenance": "Last Maintenance",
+      "actions": "Actions"
+    },
+    "types": {
+      "laptop": "Laptop",
+      "mobile": "Mobile",
+      "tablet": "Tablet",
+      "testkit": "Test Kit",
+      "safetygear": "Safety Gear",
+      "inspectiontool": "Inspection Tool"
+    },
+    "actions": {
+      "edit": "Edit Equipment",
+      "assign": "Assign Equipment"
+    }
+  },
+  "customer": {
+    "search": {
+      "placeholder": "Search customers...",
+      "icon": "search",
+      "label": "Search customers"
+    },
+    "regions": {
+      "all": "All Regions",
+      "north": "North",
+      "south": "South",
+      "east": "East",
+      "west": "West"
+    },
+    "filters": {
+      "region": "Region",
+      "status": "Status"
+    },
+    "status": {
+      "all": "All Statuses",
+      "active": "Active",
+      "inactive": "Inactive",
+      "pending": "Pending",
+      "suspended": "Suspended"
+    },
+    "actions": {
+      "add": "New Customer",
+      "add_aria": "Create new customer",
+      "edit": "Edit Customer",
+      "edit_aria": "Edit customer details",
+      "delete": "Delete Customer",
+      "delete_aria": "Delete customer",
+      "export": "Export Customers"
+    },
+    "fields": {
+      "code": "Customer Code",
+      "name": "Customer Name",
+      "region": "Region",
+      "status": "Status",
+      "actions": "Actions",
+      "industry": "Industry",
+      "address": "Address",
+      "contacts": "Contacts",
+      "contracts": "Contracts",
+      "contactPerson": "Contact Person",
+      "email": "Email",
+      "phone": "Phone"
+    },
+    "errors": {
+      "search_failed": "Failed to search customers",
+      "filter_failed": "Failed to apply filters",
+      "navigation_failed": "Failed to navigate to customer details",
+      "load_failed": "Failed to load customers",
+      "delete": {
+        "error": "Failed to delete customer"
+      }
+    },
+    "delete": {
+      "title": "Delete Customer",
+      "confirm": "Are you sure you want to delete {name}?",
+      "confirm_aria": "Confirm customer deletion",
+      "success": "Customer deleted successfully"
+    },
+    "create": {
+      "title": "Create New Customer",
+      "success": "Customer created successfully",
+      "error": "Failed to create customer"
+    }
+  },
+  "breadcrumb": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "equipment": "Equipment",
+    "customers": "Customers",
+    "inspectors": "Inspectors",
+    "admin": "Admin",
+    "settings": "Settings",
+    "users": "Users"
+  },
+  "search": {
+    "icon": "search",
+    "placeholder": "Search...",
+    "label": "Search",
+    "equipment": {
+      "placeholder": "Search equipment..."
+    }
+  },
+  "inspector": {
+    "search": {
+      "placeholder": "Search inspectors...",
+      "icon": "search",
+      "label": "Search inspectors",
+      "success": "Search completed successfully",
+      "error": "Failed to search inspectors"
+    },
+    "status": {
+      "label": "Status",
+      "available": "Available",
+      "mobilized": "Mobilized",
+      "inactive": "Inactive",
+      "suspended": "Suspended"
+    },
+    "location": {
+      "label": "Location"
+    },
+    "radius": {
+      "label": "Radius"
+    },
+    "list": {
+      "title": "Inspector List"
+    },
+    "actions": {
+      "view": "View Inspector",
+      "mobilize": "Mobilize Inspector",
+      "drugTest": "Drug Test"
+    },
+    "load": {
+      "error": "Failed to load inspectors"
+    }
+  },
+  "validation": {
+    "required": "This field is required",
+    "email": "Please enter a valid email address"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete"
+  }
+} 

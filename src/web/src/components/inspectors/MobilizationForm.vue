@@ -122,9 +122,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { QForm, QInput, QBtn, QDate, QSpinner } from 'quasar';
-import { useInspector } from '../../composables/useInspector';
-import { Inspector } from '../../models/inspector.model';
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
+import { useInspector } from '@/composables/useInspector';
+import type { Inspector, GeographyPoint } from '@/models/inspector.model';
 
 interface FormData {
   latitude: number | null;

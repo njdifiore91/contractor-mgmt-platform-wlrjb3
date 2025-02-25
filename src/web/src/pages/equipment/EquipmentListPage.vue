@@ -1,8 +1,5 @@
 <template>
   <q-page class="equipment-list-page" role="main">
-    <!-- Page Header with Breadcrumb -->
-    <AppBreadcrumb />
-
     <!-- Page Title and Actions -->
     <div class="row items-center justify-between q-mb-md">
       <h1 class="text-h5 q-my-none">Equipment Management</h1>
@@ -30,6 +27,10 @@
       ref="equipmentListRef"
       :loading="loading"
       @equipment-selected="handleEquipmentSelected"
+      @edit-equipment="handleEditEquipment"
+      @assign-equipment="handleAssignEquipment"
+      @return-equipment="handleReturnEquipment"
+      @maintenance-equipment="handleMaintenanceEquipment"
     />
 
     <!-- Error Display -->
@@ -55,7 +56,6 @@ import { defineComponent, ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { QPage, QBtn, QSpinner, useQuasar } from 'quasar';
 import EquipmentList from '@/components/equipment/EquipmentList.vue';
-import AppBreadcrumb from '@/components/common/AppBreadcrumb.vue';
 import FilterPanel from '@/components/common/FilterPanel.vue';
 import { useEquipmentStore } from '@/stores/equipment.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -69,7 +69,6 @@ export default defineComponent({
     QBtn,
     QSpinner,
     EquipmentList,
-    AppBreadcrumb,
     FilterPanel
   },
 
@@ -96,9 +95,6 @@ export default defineComponent({
         loading.value = true;
         error.value = null;
 
-        // Subscribe to real-time updates
-        await equipmentStore.subscribeToUpdates();
-        
         // Load initial data with query params
         const queryParams = route.query;
         if (Object.keys(queryParams).length) {
@@ -121,13 +117,25 @@ export default defineComponent({
     // Event handlers
     const handleEquipmentSelected = async (equipment: Equipment) => {
       try {
-        await router.push(`/equipment/${equipment.id}`);
+        if (!equipment || typeof equipment !== 'object') {
+          throw new Error('Invalid equipment data received');
+        }
+
+        if (!equipment.id) {
+          throw new Error('Equipment ID is missing');
+        }
+
+        await router.push({ 
+          path: `/dashboard/equipment/${equipment.id}`
+        });
       } catch (err) {
-        error.value = err instanceof Error ? err.message : 'Navigation failed';
+        const errorMessage = err instanceof Error ? err.message : 'Failed to view equipment details';
+        error.value = errorMessage;
         $q.notify({
           type: 'negative',
-          message: error.value,
-          position: 'top'
+          message: errorMessage,
+          position: 'top',
+          timeout: 3000
         });
       }
     };
@@ -137,7 +145,7 @@ export default defineComponent({
         if (!canCreateEquipment.value) {
           throw new Error('Insufficient permissions');
         }
-        await router.push('/equipment/create');
+        await router.push({ name: 'equipment-create' });
       } catch (err) {
         error.value = err instanceof Error ? err.message : 'Failed to create equipment';
         $q.notify({
@@ -158,9 +166,6 @@ export default defineComponent({
         
         // Apply filters
         await equipmentStore.loadEquipment(true, filters);
-        
-        // Refresh list component
-        equipmentListRef.value?.refresh();
       } catch (err) {
         error.value = err instanceof Error ? err.message : 'Failed to apply filters';
         $q.notify({
@@ -183,9 +188,6 @@ export default defineComponent({
         
         // Reset filters and reload
         await equipmentStore.loadEquipment(true);
-        
-        // Refresh list component
-        equipmentListRef.value?.refresh();
       } catch (err) {
         error.value = err instanceof Error ? err.message : 'Failed to reset filters';
         $q.notify({
@@ -195,6 +197,82 @@ export default defineComponent({
         });
       } finally {
         loading.value = false;
+      }
+    };
+
+    const handleEditEquipment = async (equipment: Equipment) => {
+      try {
+        if (!equipment || !equipment.id) {
+          throw new Error('Invalid equipment data');
+        }
+        await router.push({ 
+          path: `/dashboard/equipment/${equipment.id}`,
+          query: { edit: 'true' }
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to edit equipment';
+        $q.notify({
+          type: 'negative',
+          message: errorMessage,
+          position: 'top'
+        });
+      }
+    };
+
+    const handleAssignEquipment = async (equipment: Equipment) => {
+      try {
+        if (!equipment || !equipment.id) {
+          throw new Error('Invalid equipment data');
+        }
+        await router.push({ 
+          path: `/dashboard/equipment/${equipment.id}`,
+          query: { assign: 'true' }
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to assign equipment';
+        $q.notify({
+          type: 'negative',
+          message: errorMessage,
+          position: 'top'
+        });
+      }
+    };
+
+    const handleReturnEquipment = async (equipment: Equipment) => {
+      try {
+        if (!equipment || !equipment.id) {
+          throw new Error('Invalid equipment data');
+        }
+        await router.push({ 
+          path: `/dashboard/equipment/${equipment.id}`,
+          query: { return: 'true' }
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to return equipment';
+        $q.notify({
+          type: 'negative',
+          message: errorMessage,
+          position: 'top'
+        });
+      }
+    };
+
+    const handleMaintenanceEquipment = async (equipment: Equipment) => {
+      try {
+        if (!equipment || !equipment.id) {
+          throw new Error('Invalid equipment data');
+        }
+        await router.push({ 
+          path: `/dashboard/equipment/${equipment.id}`,
+          query: { maintenance: 'true' }
+        });
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to initiate maintenance';
+        $q.notify({
+          type: 'negative',
+          message: errorMessage,
+          position: 'top'
+        });
       }
     };
 
@@ -215,7 +293,11 @@ export default defineComponent({
       handleEquipmentSelected,
       handleCreateEquipment,
       handleFilterChange,
-      handleFilterReset
+      handleFilterReset,
+      handleEditEquipment,
+      handleAssignEquipment,
+      handleReturnEquipment,
+      handleMaintenanceEquipment
     };
   }
 });

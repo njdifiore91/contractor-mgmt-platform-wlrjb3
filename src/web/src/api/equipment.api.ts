@@ -4,8 +4,8 @@
  * @version 1.0.0
  */
 
-import type { Equipment, EquipmentAssignment, EquipmentHistory, EquipmentStatus } from '../models/equipment.model';
-import { EquipmentType } from '../models/equipment.model';
+import { Equipment, EquipmentType, EquipmentStatus } from '../models/equipment.model';
+import type { EquipmentAssignment, EquipmentHistory } from '../models/equipment-types';
 import api from '../utils/api.util';
 import retry from 'axios-retry';
 import rateLimit from 'axios-rate-limit';
@@ -13,6 +13,7 @@ import createError from 'http-errors';
 
 // API endpoint constants
 const API_VERSION = import.meta.env.VITE_APP_API_VERSION || 'v1';
+const BASE_URL = import.meta.env.VITE_APP_API_URL || 'http://localhost:8080/api';
 const API_ENDPOINTS = {
     EQUIPMENT: `/${API_VERSION}/equipment`,
     ASSIGNMENTS: `/${API_VERSION}/equipment/assignments`,
@@ -47,35 +48,57 @@ const logger = {
 
 // Helper function to convert IEquipment to Equipment
 function convertToEquipment(item: any): Equipment {
-    return {
+    return new Equipment({
         id: Number(item.id),
         serialNumber: item.serialNumber,
         model: item.name, // Using name as model
         type: EquipmentType.TestKit, // Default to TestKit for now
         condition: item.condition,
-        status: item.status.toUpperCase() as EquipmentStatus,
+        status: item.status?.toUpperCase() || 'AVAILABLE',
         isActive: item.status !== 'retired',
         isAvailable: item.status === 'available',
         purchaseDate: new Date(item.purchaseDate),
         lastMaintenanceDate: item.lastMaintenanceDate ? new Date(item.lastMaintenanceDate) : null,
-        notes: item.notes
-    };
+        notes: item.notes,
+        specifications: item.specifications ? {
+            manufacturer: item.specifications.manufacturer,
+            model: item.specifications.model,
+            calibrationDue: item.specifications.calibrationDue,
+            warranty: item.specifications.warranty
+        } : null,
+        maintenanceHistory: item.maintenanceHistory ? item.maintenanceHistory.map((record: any) => ({
+            id: record.id,
+            date: record.date,
+            type: record.type,
+            technician: record.technician,
+            notes: record.notes
+        })) : [],
+        documents: item.documents ? item.documents.map((doc: any) => ({
+            id: doc.id,
+            type: doc.type,
+            name: doc.name,
+            url: doc.url
+        })) : []
+    });
 }
 
 // Helper function to convert Equipment to IEquipment
 function convertToIEquipment(item: Equipment): any {
     return {
-        id: String(item.id),
+        id: String(item.id || 0),
         name: item.model,
         type: item.type,
         serialNumber: item.serialNumber,
-        status: item.status.toLowerCase(),
+        status: (item.status || 'available').toLowerCase(),
         condition: item.condition,
         purchaseDate: item.purchaseDate,
         lastMaintenanceDate: item.lastMaintenanceDate,
         assignedTo: null, // This would need to come from assignments
         location: '', // This would need to be added to the Equipment type
         notes: item.notes,
+        specifications: item.specifications,
+        maintenanceHistory: item.maintenanceHistory,
+        documents: item.documents,
         createdAt: new Date(),
         updatedAt: new Date()
     };
@@ -99,7 +122,7 @@ export class EquipmentApiClient {
      * @throws {ApiError} If the request fails or validation errors occur
      */
     async getEquipmentList(params?: {
-        type?: EquipmentType;
+        type?: typeof EquipmentType[keyof typeof EquipmentType];
         isAvailable?: boolean;
         search?: string;
     }): Promise<Equipment[]> {
@@ -139,8 +162,10 @@ export class EquipmentApiClient {
     async createEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
         try {
             logger.info('Creating new equipment', { equipment });
-            const iequipment = convertToIEquipment(equipment as Equipment);
-            const response = await api.post<Equipment>(API_ENDPOINTS.EQUIPMENT, iequipment);
+            // Create a proper Equipment instance first
+            const equipmentInstance = new Equipment(equipment);
+            const iequipment = convertToIEquipment(equipmentInstance);
+            const response = await api.post(API_ENDPOINTS.EQUIPMENT, iequipment);
             return convertToEquipment(response.data);
         } catch (error) {
             logger.error('Failed to create equipment', { error, equipment });
@@ -186,24 +211,24 @@ export class EquipmentApiClient {
 
     /**
      * Records equipment return
-     * @param assignmentId Assignment identifier
+     * @param equipmentId Equipment identifier
      * @param returnDetails Return condition and notes
      * @returns Promise resolving to updated EquipmentAssignment
      * @throws {ApiError} If the request fails or assignment is not found
      */
     async returnEquipment(
-        assignmentId: number,
+        equipmentId: number,
         returnDetails: { returnCondition: string; notes?: string }
     ): Promise<EquipmentAssignment> {
         try {
-            logger.info('Processing equipment return', { assignmentId, returnDetails });
+            logger.info('Processing equipment return', { equipmentId, returnDetails });
             const response = await api.put<EquipmentAssignment>(
-                `${API_ENDPOINTS.ASSIGNMENTS}/${assignmentId}/return`,
+                `${API_ENDPOINTS.ASSIGNMENTS}/${equipmentId}/return`,
                 returnDetails
             );
             return response.data;
         } catch (error) {
-            logger.error('Failed to process equipment return', { error, assignmentId, returnDetails });
+            logger.error('Failed to return equipment', { error, equipmentId, returnDetails });
             throw createError(400, 'Failed to process equipment return', { cause: error });
         }
     }
@@ -262,7 +287,9 @@ export async function getEquipmentById(id: number): Promise<Equipment> {
 export async function createEquipment(equipment: Partial<Equipment>): Promise<Equipment> {
     try {
         logger.info('Creating new equipment', { equipment });
-        const iequipment = convertToIEquipment(equipment as Equipment);
+        // Create a proper Equipment instance first
+        const equipmentInstance = new Equipment(equipment);
+        const iequipment = convertToIEquipment(equipmentInstance);
         const response = await api.post(API_ENDPOINTS.EQUIPMENT, iequipment);
         return convertToEquipment(response.data);
     } catch (error) {
@@ -293,12 +320,12 @@ export async function assignEquipment(equipmentId: number, inspectorId: number):
     }
 }
 
-export async function returnEquipment(assignmentId: number): Promise<void> {
+export async function returnEquipment(equipmentId: number): Promise<void> {
     try {
-        logger.info('Processing equipment return', { assignmentId });
-        await api.post(`${API_ENDPOINTS.ASSIGNMENTS}/${assignmentId}/return`);
+        logger.info('Processing equipment return', { equipmentId });
+        await api.put(`${API_ENDPOINTS.ASSIGNMENTS}/${equipmentId}/return`);
     } catch (error) {
-        logger.error('Failed to return equipment', { error, assignmentId });
+        logger.error('Failed to return equipment', { error, equipmentId });
         throw createError(400, 'Failed to return equipment', { cause: error });
     }
 }

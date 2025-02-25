@@ -53,6 +53,7 @@
             @row-click="handleCustomerSelect"
             @search="handleSearch"
             @sort="handleSort"
+            @create-customer="handleCreateCustomer"
           />
         </div>
       </div>
@@ -150,7 +151,7 @@ const handleCustomerSelect = async (customerId: number) => {
 };
 
 const handleCreateCustomer = () => {
-  router.push({ name: 'customer-create' });
+  router.push({ name: 'customers-create' });
 };
 
 const handleExport = async () => {
@@ -218,6 +219,8 @@ watch(
 </script>
 
 <style lang="scss" scoped>
+@import '@/assets/styles/variables.scss';
+
 .customer-list-page {
   padding: $space-lg;
   height: 100%;
@@ -233,6 +236,15 @@ watch(
     flex-wrap: wrap;
     gap: $space-md;
     margin-bottom: $space-lg;
+    background-color: var(--q-primary);
+    padding: $space-md;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.15);
+
+    h1 {
+      color: white;
+      margin: 0;
+    }
 
     @media (max-width: $breakpoint-sm) {
       flex-direction: column;
@@ -244,6 +256,15 @@ watch(
     display: flex;
     gap: $space-sm;
     flex-wrap: wrap;
+
+    .q-btn {
+      background: white;
+      color: var(--q-primary);
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.9);
+      }
+    }
 
     @media (max-width: $breakpoint-xs) {
       width: 100%;

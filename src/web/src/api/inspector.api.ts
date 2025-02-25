@@ -7,6 +7,10 @@
 import type { GeographyPoint, Inspector, InspectorStatus, DrugTest, Certification } from '../models/inspector.model';
 import api from '../utils/api.util';
 
+// API endpoint constants
+const API_VERSION = 'v1';
+const API_BASE_PATH = `/${API_VERSION}/inspectors`;
+
 /**
  * Interface for paginated response data
  */
@@ -62,9 +66,9 @@ function validateLocation(location: GeographyPoint): void {
 }
 
 export interface SearchInspectorsParams {
-    location: GeographyPoint;
-    radiusInMiles: number;
-    status?: InspectorStatus;
+    location?: GeographyPoint | null;
+    radiusInMiles?: number;
+    status?: InspectorStatus[];
     certifications?: string[];
     isActive?: boolean;
     pageNumber?: number;
@@ -72,14 +76,29 @@ export interface SearchInspectorsParams {
 }
 
 export interface SearchInspectorsResponse {
-    inspectors: Inspector[];
-    totalItems: number;
+    items: Inspector[];
+    totalCount: number;
 }
 
 export async function searchInspectors(params: SearchInspectorsParams): Promise<SearchInspectorsResponse> {
     try {
-        validateLocation(params.location);
-        const response = await api.get('/inspectors/search', { params });
+        if (params.location) {
+            validateLocation(params.location);
+        }
+        
+        // Flatten the location object for URL parameters
+        const searchParams = {
+            ...(params.location && {
+                latitude: params.location.latitude,
+                longitude: params.location.longitude
+            }),
+            ...(params.radiusInMiles && { radiusInMiles: params.radiusInMiles }),
+            ...(params.status && { status: params.status }),
+            certifications: params.certifications,
+            ...(params.isActive !== undefined && { isActive: params.isActive })
+        };
+
+        const response = await api.get(`${API_BASE_PATH}/search`, { params: searchParams });
         return response.data;
     } catch (error) {
         console.error('Failed to search inspectors:', error);
@@ -92,7 +111,7 @@ export async function searchInspectors(params: SearchInspectorsParams): Promise<
  */
 export async function getInspectorById(id: string): Promise<Inspector> {
     try {
-        const response = await api.get(`/inspectors/${id}`);
+        const response = await api.get(`${API_BASE_PATH}/${id}`);
         return response.data;
     } catch (error) {
         console.error(`Failed to get inspector ${id}:`, error);
@@ -126,7 +145,7 @@ export async function createInspector(request: CreateInspectorRequest): Promise<
             });
         }
 
-        const response = await api.post('/inspectors', request);
+        const response = await api.post(API_BASE_PATH, request);
         return response.data;
     } catch (error) {
         console.error('Failed to create inspector:', error);
@@ -142,7 +161,7 @@ export async function updateInspector(id: string, data: UpdateInspectorRequest):
         if (data.location) {
             validateLocation(data.location);
         }
-        const response = await api.put(`/inspectors/${id}`, data);
+        const response = await api.put(`${API_BASE_PATH}/${id}`, data);
         return response.data;
     } catch (error) {
         console.error(`Failed to update inspector ${id}:`, error);
@@ -155,7 +174,7 @@ export async function updateInspector(id: string, data: UpdateInspectorRequest):
  */
 export async function mobilizeInspector(id: string): Promise<void> {
     try {
-        await api.post(`/inspectors/${id}/mobilize`);
+        await api.post(`${API_BASE_PATH}/${id}/mobilize`);
     } catch (error) {
         console.error(`Failed to mobilize inspector ${id}:`, error);
         throw error;
@@ -167,7 +186,7 @@ export async function mobilizeInspector(id: string): Promise<void> {
  */
 export async function addDrugTest(inspectorId: string, data: Omit<DrugTest, 'id' | 'inspectorId'>): Promise<DrugTest> {
     try {
-        const response = await api.post(`/inspectors/${inspectorId}/drug-tests`, data);
+        const response = await api.post(`${API_BASE_PATH}/${inspectorId}/drug-tests`, data);
         return response.data;
     } catch (error) {
         console.error(`Failed to add drug test for inspector ${inspectorId}:`, error);
@@ -180,7 +199,7 @@ export async function addDrugTest(inspectorId: string, data: Omit<DrugTest, 'id'
  */
 export async function demobilizeInspector(id: string): Promise<void> {
     try {
-        await api.post(`/inspectors/${id}/demobilize`);
+        await api.post(`${API_BASE_PATH}/${id}/demobilize`);
     } catch (error) {
         console.error(`Failed to demobilize inspector ${id}:`, error);
         throw error;
@@ -192,7 +211,7 @@ export async function demobilizeInspector(id: string): Promise<void> {
  */
 export async function addCertification(inspectorId: string, data: Omit<Certification, 'id' | 'inspectorId'>): Promise<Certification> {
     try {
-        const response = await api.post(`/inspectors/${inspectorId}/certifications`, data);
+        const response = await api.post(`${API_BASE_PATH}/${inspectorId}/certifications`, data);
         return response.data;
     } catch (error) {
         console.error(`Failed to add certification for inspector ${inspectorId}:`, error);
@@ -202,7 +221,7 @@ export async function addCertification(inspectorId: string, data: Omit<Certifica
 
 export async function updateCertification(inspectorId: string, certificationId: string, data: Partial<Certification>): Promise<Certification> {
     try {
-        const response = await api.put(`/inspectors/${inspectorId}/certifications/${certificationId}`, data);
+        const response = await api.put(`${API_BASE_PATH}/${inspectorId}/certifications/${certificationId}`, data);
         return response.data;
     } catch (error) {
         console.error(`Failed to update certification ${certificationId} for inspector ${inspectorId}:`, error);
@@ -212,7 +231,7 @@ export async function updateCertification(inspectorId: string, certificationId: 
 
 export async function getInspectorHistory(inspectorId: string): Promise<any[]> {
     try {
-        const response = await api.get(`/inspectors/${inspectorId}/history`);
+        const response = await api.get(`${API_BASE_PATH}/${inspectorId}/history`);
         return response.data;
     } catch (error) {
         console.error(`Failed to get history for inspector ${inspectorId}:`, error);
