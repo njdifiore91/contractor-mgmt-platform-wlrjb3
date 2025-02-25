@@ -287,16 +287,35 @@
     $q.dialog({
       title: 'Confirm Delete',
       message: `Are you sure you want to delete ${user.firstName} ${user.lastName}?`,
-      cancel: true,
       persistent: true,
+      ok: {
+        color: 'negative',
+        label: 'Delete',
+        icon: 'delete',
+      },
+      cancel: {
+        color: 'grey',
+        flat: true,
+      },
     }).onOk(async () => {
       try {
+        // Store user data for audit log before deletion
+        const userData = {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          roles: user.userRoles,
+        };
+
         // Call the delete API endpoint
         await deleteUser(user.id);
 
         // Log the deletion action
         await auditService.logAction('USER', user.id.toString(), 'delete', {
-          userData: user,
+          deletedUser: userData,
+          performedBy: 'admin@example.com', // In real app, this would be the current user
+          timestamp: new Date().toISOString(),
         });
 
         // Refresh the user list
@@ -306,6 +325,7 @@
           type: 'positive',
           message: 'User deleted successfully',
           position: 'top',
+          timeout: 2000,
         });
       } catch (error) {
         console.error('Failed to delete user:', error);
@@ -313,6 +333,7 @@
           type: 'negative',
           message: 'Failed to delete user',
           position: 'top',
+          timeout: 2000,
         });
       }
     });

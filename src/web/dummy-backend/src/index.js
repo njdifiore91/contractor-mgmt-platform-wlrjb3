@@ -1,35 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const connectDB = require('./config/database');
-const userRoutes = require('./routes/user.routes');
+const { router: userRoutes } = require('./routes/user.routes');
 const auditRoutes = require('./routes/audit.routes');
-const auditLogger = require('./middleware/audit-logger');
-require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 8000;
-
-// Connect to MongoDB
-connectDB();
+const PORT = process.env.PORT || 8000;
 
 // Middleware
-app.use(
-  cors({
-    origin: ['http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'], // Allow multiple frontend dev servers
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-email'],
-  })
-);
+app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 
-// Add audit logging middleware after auth but before routes
-app.use(auditLogger);
-
-// Register routes
-app.use('/api', userRoutes.router);
+// Routes
+app.use('/api/users', userRoutes);
 app.use('/api/audit', auditRoutes);
 
 // Dummy data
@@ -531,7 +515,7 @@ app.get('/api/v1/equipment', (req, res) => {
 });
 
 app.get('/api/v1/equipment/:id', (req, res) => {
-  const equipment = equipmentData.find(e => e.id === parseInt(req.params.id));
+  const equipment = equipmentData.find((e) => e.id === parseInt(req.params.id));
   if (!equipment) return res.status(404).json({ message: 'Equipment not found' });
   res.json(equipment);
 });
@@ -541,16 +525,20 @@ app.post('/api/v1/equipment', (req, res) => {
     id: equipmentData.length + 1,
     ...req.body,
     createdAt: new Date().toISOString(),
-    modifiedAt: new Date().toISOString()
+    modifiedAt: new Date().toISOString(),
   };
   equipmentData.push(newEquipment);
   res.status(201).json(newEquipment);
 });
 
 app.put('/api/v1/equipment/:id', (req, res) => {
-  const index = equipmentData.findIndex(e => e.id === parseInt(req.params.id));
+  const index = equipmentData.findIndex((e) => e.id === parseInt(req.params.id));
   if (index === -1) return res.status(404).json({ message: 'Equipment not found' });
-  equipmentData[index] = { ...equipmentData[index], ...req.body, modifiedAt: new Date().toISOString() };
+  equipmentData[index] = {
+    ...equipmentData[index],
+    ...req.body,
+    modifiedAt: new Date().toISOString(),
+  };
   res.json(equipmentData[index]);
 });
 
@@ -563,16 +551,16 @@ app.post('/api/v1/equipment/assignments', (req, res) => {
     id: assignments.length + 1,
     ...req.body,
     status: 'active',
-    assignedDate: new Date().toISOString()
+    assignedDate: new Date().toISOString(),
   };
   assignments.push(newAssignment);
-  
+
   // Update equipment status
-  const equipment = equipmentData.find(e => e.id === newAssignment.equipmentId);
+  const equipment = equipmentData.find((e) => e.id === newAssignment.equipmentId);
   if (equipment) {
     equipment.status = 'in_use';
   }
-  
+
   res.status(201).json(newAssignment);
 });
 

@@ -146,7 +146,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, computed, watch } from 'vue';
+  import { ref, onMounted, computed, watch, onUnmounted } from 'vue';
   import { useAuditLog } from '@/composables/useAuditLog';
   import { formatDate } from '@/utils/date.util';
   import { Chart } from 'chart.js/auto';
@@ -154,7 +154,7 @@
   import { useQuasar } from 'quasar';
 
   const $q = useQuasar();
-  const { logs, total, isLoading, error, fetchLogs, fetchStatistics } = useAuditLog();
+  const { logs, total, isLoading, error, fetchLogs, statistics } = useAuditLog();
 
   // State
   const activeTab = ref('logs');
@@ -258,9 +258,9 @@
     return filtered;
   });
 
-  const entityTypes = computed(() => [...new Set(logs.value.map((log) => log.entityType))].sort());
+  const entityTypes = ['USER', 'ROLE', 'PERMISSION', 'EQUIPMENT', 'SYSTEM'];
 
-  const actionTypes = computed(() => [...new Set(logs.value.map((log) => log.action))].sort());
+  const actionTypes = ['create', 'update', 'delete', 'view', 'export', 'login'];
 
   // Methods
   const handleSearch = async () => {
@@ -293,142 +293,162 @@
     showDetailsDialog.value = true;
   };
 
-  const getActionColor = (action: string) => {
-    const actionColors = {
+  const getActionColor = (action: string): string => {
+    const colors: Record<string, string> = {
       create: 'positive',
       update: 'warning',
       delete: 'negative',
-      access: 'info',
-    } as const;
-    return actionColors[action.toLowerCase() as keyof typeof actionColors] || 'grey';
+      view: 'info',
+      export: 'purple',
+      login: 'primary',
+    };
+    return colors[action] || 'grey';
   };
 
-  const destroyCharts = () => {
-    charts.forEach((chart) => chart.destroy());
-    charts = [];
+  // Chart rendering functions
+  const renderActionChart = () => {
+    if (!actionChart.value || !statistics.value) return;
+
+    const { actionDistribution } = statistics.value;
+    const data = {
+      labels: Object.keys(actionDistribution),
+      datasets: [
+        {
+          data: Object.values(actionDistribution),
+          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+        },
+      ],
+    };
+
+    const config: ChartConfiguration = {
+      type: 'pie',
+      data,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+          title: {
+            display: true,
+            text: 'Actions Distribution',
+          },
+        },
+      },
+    };
+
+    charts.push(new Chart(actionChart.value, config));
   };
 
-  const initCharts = async () => {
-    try {
-      destroyCharts();
+  const renderTimelineChart = () => {
+    if (!timelineChart.value || !statistics.value) return;
 
-      const stats = await fetchStatistics();
+    const { timeline } = statistics.value;
+    const data = {
+      labels: Object.keys(timeline),
+      datasets: [
+        {
+          label: 'Activity',
+          data: Object.values(timeline),
+          fill: false,
+          borderColor: '#36A2EB',
+          tension: 0.1,
+        },
+      ],
+    };
 
-      // Action Distribution Chart
-      if (actionChart.value) {
-        const actionCtx = actionChart.value.getContext('2d');
-        if (actionCtx) {
-          const actionLabels = Object.keys(stats.actionDistribution);
-          const actionData = Object.values(stats.actionDistribution);
+    const config: ChartConfiguration = {
+      type: 'line',
+      data,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+          title: {
+            display: true,
+            text: 'Activity Timeline',
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+      },
+    };
 
-          const config: ChartConfiguration = {
-            type: 'pie',
-            data: {
-              labels: actionLabels,
-              datasets: [
-                {
-                  data: actionData,
-                  backgroundColor: ['#26A69A', '#FFA726', '#EF5350', '#42A5F5', '#7E57C2'],
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-            },
-          };
+    charts.push(new Chart(timelineChart.value, config));
+  };
 
-          charts.push(new Chart(actionCtx, config));
-        }
+  const renderEntityChart = () => {
+    if (!entityChart.value || !statistics.value) return;
+
+    const { entityDistribution } = statistics.value;
+    const data = {
+      labels: Object.keys(entityDistribution),
+      datasets: [
+        {
+          data: Object.values(entityDistribution),
+          backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+        },
+      ],
+    };
+
+    const config: ChartConfiguration = {
+      type: 'doughnut',
+      data,
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+          },
+          title: {
+            display: true,
+            text: 'Entity Type Distribution',
+          },
+        },
+      },
+    };
+
+    charts.push(new Chart(entityChart.value, config));
+  };
+
+  // Update chart rendering when tab changes or data updates
+  watch(
+    () => activeTab.value,
+    async (newTab) => {
+      if (newTab === 'statistics') {
+        // Clear existing charts
+        charts.forEach((chart) => chart.destroy());
+        charts = [];
+
+        // Render new charts
+        renderActionChart();
+        renderTimelineChart();
+        renderEntityChart();
       }
-
-      // Timeline Chart
-      if (timelineChart.value) {
-        const timelineCtx = timelineChart.value.getContext('2d');
-        if (timelineCtx) {
-          const timelineLabels = Object.keys(stats.timeline);
-          const timelineData = Object.values(stats.timeline);
-
-          const config: ChartConfiguration = {
-            type: 'line',
-            data: {
-              labels: timelineLabels,
-              datasets: [
-                {
-                  label: 'Activity',
-                  data: timelineData,
-                  borderColor: '#1976D2',
-                  tension: 0.1,
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-              },
-            },
-          };
-
-          charts.push(new Chart(timelineCtx, config));
-        }
-      }
-
-      // Entity Distribution Chart
-      if (entityChart.value) {
-        const entityCtx = entityChart.value.getContext('2d');
-        if (entityCtx) {
-          const entityLabels = Object.keys(stats.entityDistribution);
-          const entityData = Object.values(stats.entityDistribution);
-
-          const config: ChartConfiguration = {
-            type: 'bar',
-            data: {
-              labels: entityLabels,
-              datasets: [
-                {
-                  label: 'Entities',
-                  data: entityData,
-                  backgroundColor: '#1976D2',
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-              },
-            },
-          };
-
-          charts.push(new Chart(entityCtx, config));
-        }
-      }
-    } catch (error) {
-      console.error('Error initializing charts:', error);
-      $q.notify({
-        type: 'negative',
-        message: 'Failed to load statistics',
-        position: 'top',
-      });
     }
-  };
+  );
 
-  // Watch for tab changes to initialize charts
-  watch(activeTab, (newTab) => {
-    if (newTab === 'statistics') {
-      // Add a small delay to ensure DOM is ready
-      setTimeout(() => {
-        initCharts();
-      }, 0);
-    }
-  });
+  watch(
+    () => statistics.value,
+    () => {
+      if (activeTab.value === 'statistics') {
+        // Clear existing charts
+        charts.forEach((chart) => chart.destroy());
+        charts = [];
+
+        // Render new charts
+        renderActionChart();
+        renderTimelineChart();
+        renderEntityChart();
+      }
+    },
+    { deep: true }
+  );
 
   // Watch for filter changes
   watch(
@@ -439,15 +459,25 @@
     { deep: true }
   );
 
-  // Lifecycle hooks
+  // Clean up charts when component is unmounted
+  onUnmounted(() => {
+    charts.forEach((chart) => chart.destroy());
+    charts = [];
+  });
+
   onMounted(async () => {
     try {
       await handleSearch();
-    } catch (err) {
-      console.error('Error loading audit logs:', err);
+      if (activeTab.value === 'statistics') {
+        renderActionChart();
+        renderTimelineChart();
+        renderEntityChart();
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
       $q.notify({
         type: 'negative',
-        message: 'Failed to load audit logs',
+        message: 'Failed to load initial data',
         position: 'top',
       });
     }
