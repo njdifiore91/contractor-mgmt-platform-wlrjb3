@@ -55,19 +55,21 @@ const appInsightsConnectionString = import.meta.env.VITE_APP_APPINSIGHTS_CONNECT
 
 let appInsights: ApplicationInsights | null = null;
 if (appInsightsConnectionString) {
-    appInsights = new ApplicationInsights({
-        config: {
-            connectionString: appInsightsConnectionString,
-            enableAutoRouteTracking: true,
-            enableCorsCorrelation: true,
-            enableRequestHeaderTracking: true,
-            enableResponseHeaderTracking: true
-        }
-    });
-    appInsights.loadAppInsights();
-    appInsights.trackPageView();
+  appInsights = new ApplicationInsights({
+    config: {
+      connectionString: appInsightsConnectionString,
+      enableAutoRouteTracking: true,
+      enableCorsCorrelation: true,
+      enableRequestHeaderTracking: true,
+      enableResponseHeaderTracking: true,
+    },
+  });
+  appInsights.loadAppInsights();
+  appInsights.trackPageView();
 } else if (import.meta.env.DEV) {
-    console.info('Application Insights connection string not provided in development mode. Telemetry disabled.');
+  console.info(
+    'Application Insights connection string not provided in development mode. Telemetry disabled.'
+  );
 }
 
 // Initialize MSAL for Azure AD B2C
@@ -76,12 +78,12 @@ const msalConfig = {
     clientId: import.meta.env.VITE_APP_AZURE_CLIENT_ID || '',
     authority: import.meta.env.VITE_APP_AZURE_AUTHORITY || '',
     knownAuthorities: [import.meta.env.VITE_APP_AZURE_KNOWN_AUTHORITY || ''],
-    redirectUri: window.location.origin
+    redirectUri: window.location.origin,
   },
   cache: {
     cacheLocation: 'localStorage',
-    storeAuthStateInCookie: false
-  }
+    storeAuthStateInCookie: false,
+  },
 };
 
 const msalInstance = new PublicClientApplication(msalConfig);
@@ -150,6 +152,7 @@ app.use(Quasar, {
 // Make app instance available globally
 (window as any).vueApp = app;
 
+
 // Configure security monitoring
 function setupSecurity(app: any) {
   app.config.globalProperties.$security = {
@@ -176,9 +179,9 @@ function setupSecurity(app: any) {
         const silentRequest = {
           scopes: ['openid', 'profile', 'email'],
           account: msalInstance.getAllAccounts()[0],
-          forceRefresh: false
+          forceRefresh: false,
         };
-        
+
         if (silentRequest.account) {
           await msalInstance.acquireTokenSilent(silentRequest);
           return true;
@@ -188,41 +191,41 @@ function setupSecurity(app: any) {
         console.warn('Auth initialization failed:', error);
         return false;
       }
-    }
+    },
   };
 }
 
 // Configure performance monitoring
 function setupPerformanceMonitoring(app: any) {
-    if (appInsights) {
-        app.config.globalProperties.$performance = {
-            trackEvent: (name: string, properties?: { [key: string]: any }) => {
-                appInsights?.trackEvent({ name, properties });
-            },
-            trackMetric: (name: string, value: number) => {
-                appInsights?.trackMetric({ name, average: value });
-            },
-            trackException: (error: Error) => {
-                appInsights?.trackException({ error });
-            }
-        };
-    } else {
-        app.config.globalProperties.$performance = {
-            trackEvent: () => {},
-            trackMetric: () => {},
-            trackException: (error: Error) => {
-                console.error('Error tracked:', error);
-            }
-        };
-    }
+  if (appInsights) {
+    app.config.globalProperties.$performance = {
+      trackEvent: (name: string, properties?: { [key: string]: any }) => {
+        appInsights?.trackEvent({ name, properties });
+      },
+      trackMetric: (name: string, value: number) => {
+        appInsights?.trackMetric({ name, average: value });
+      },
+      trackException: (error: Error) => {
+        appInsights?.trackException({ error });
+      },
+    };
+  } else {
+    app.config.globalProperties.$performance = {
+      trackEvent: () => {},
+      trackMetric: () => {},
+      trackException: (error: Error) => {
+        console.error('Error tracked:', error);
+      },
+    };
+  }
 }
 
 // Error handling
 app.config.errorHandler = (err, vm, info) => {
-    console.error('Global error:', err);
-    if (appInsights) {
-        appInsights.trackException({ error: err as Error });
-    }
+  console.error('Global error:', err);
+  if (appInsights) {
+    appInsights.trackException({ error: err as Error });
+  }
 };
 
 // Performance marking for initialization
@@ -245,7 +248,6 @@ async function initializeApp() {
     // Performance measurement
     performance.mark('app-init-end');
     performance.measure('app-initialization', 'app-init-start', 'app-init-end');
-
   } catch (error) {
     console.error('Application initialization failed:', error);
     if (appInsights) {
@@ -259,7 +261,7 @@ initializeApp();
 
 // Cleanup handler
 window.addEventListener('unload', () => {
-    appInsights?.flush();
+  appInsights?.flush();
 });
 
 export { app, appInsights, msalInstance };

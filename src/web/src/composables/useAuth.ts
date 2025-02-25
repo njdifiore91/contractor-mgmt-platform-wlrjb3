@@ -1,23 +1,26 @@
 /**
- * @fileoverview Vue.js composable providing enhanced authentication functionality with 
+ * @fileoverview Vue.js composable providing enhanced authentication functionality with
  * Azure AD B2C integration, security monitoring, and session management.
  * @version 1.0.0
  */
 
 import { ref, computed, effectScope, onScopeDispose } from 'vue';
 import { useAuthStore } from '@/stores/auth.store';
-import { 
-    type LoginCredentials,
-    type DeviceInfo,
-    AuthStatus,
-    type AuthError,
-    type MfaChallenge
+import {
+  type LoginCredentials,
+  type DeviceInfo,
+  AuthStatus,
+  type AuthError,
+  type MfaChallenge,
 } from '../models/auth.model';
-import { UserRoleType } from '../models/user.model';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
 import type { IUser } from '@/models/user.model';
-import { performAzureAuth, completeMfaChallenge, verifyTokenIntegrity } from '@/services/auth.service';
+import {
+  performAzureAuth,
+  completeMfaChallenge,
+  verifyTokenIntegrity,
+} from '@/services/auth.service';
 import { api } from '@/utils/api.util';
 import { useStorage } from '@/composables/storage';
 
@@ -29,9 +32,9 @@ const SECURITY_CHECK_INTERVAL = 30000; // 30 seconds
 const AUTH_API_BASE = '/api/auth';
 
 interface SecurityEvent {
-    type: string;
-    timestamp: Date;
-    details?: Record<string, unknown>;
+  type: string;
+  timestamp: Date;
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -249,3 +252,4 @@ export function useAuth() {
         checkRouteAccess
     };
 }
+

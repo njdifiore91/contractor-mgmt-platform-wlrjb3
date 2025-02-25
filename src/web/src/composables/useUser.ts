@@ -14,7 +14,7 @@ import { useUserStore } from '@/stores/user.store';
 
 // Constants
 const SEARCH_DEBOUNCE_MS = 300;
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 
 /**
  * Interface for search parameters with proper typing
@@ -39,20 +39,20 @@ export function useUser() {
   const searchParams = ref<ISearchParams>({
     pageNumber: 1,
     pageSize: DEFAULT_PAGE_SIZE,
-    isActive: true
+    isActive: true,
   });
 
   const debouncedSearch = debounce((term: string) => {
     searchParams.value = {
       ...searchParams.value,
-      searchTerm: term
+      searchTerm: term,
     };
     fetchUsers();
   }, SEARCH_DEBOUNCE_MS);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (params?: ISearchParams) => {
     try {
-      await userStore.fetchUsers();
+      await userStore.fetchUsers(params || searchParams.value);
     } catch (err) {
       console.error('Error fetching users:', err);
       throw err;
@@ -72,20 +72,29 @@ export function useUser() {
     }
   };
 
-  const createUser = async (userData: Partial<IUser>): Promise<void> => {
+  const createUser = async (userData: Partial<IUser>): Promise<IUser> => {
     try {
-      await userStore.createUser(userData);
+      return await userStore.createUser(userData);
     } catch (err) {
       console.error('Error creating user:', err);
       throw err;
     }
   };
 
-  const updateUser = async (id: number, updates: Partial<IUser>): Promise<void> => {
+  const updateUser = async (id: string | number, updates: Partial<IUser>): Promise<void> => {
     try {
       await userStore.updateUser(id, updates);
     } catch (err) {
       console.error('Error updating user:', err);
+      throw err;
+    }
+  };
+
+  const deleteUser = async (id: string | number): Promise<void> => {
+    try {
+      await userStore.deleteUser(id);
+    } catch (err) {
+      console.error('Error deleting user:', err);
       throw err;
     }
   };
@@ -112,6 +121,7 @@ export function useUser() {
     getUserById,
     createUser,
     updateUser,
-    validateUserData
+    deleteUser,
+    validateUserData,
   };
 }

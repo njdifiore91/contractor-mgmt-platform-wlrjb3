@@ -1,14 +1,36 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const connectDB = require('./config/database');
+const userRoutes = require('./routes/user.routes');
+const auditRoutes = require('./routes/audit.routes');
+const auditLogger = require('./middleware/audit-logger');
+require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 8000;
 
+// Connect to MongoDB
+connectDB();
+
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ['http://localhost:8080', 'http://localhost:5173', 'http://localhost:3000'], // Allow multiple frontend dev servers
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-user-email'],
+  })
+);
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Add audit logging middleware after auth but before routes
+app.use(auditLogger);
+
+// Register routes
+app.use('/api', userRoutes.router);
+app.use('/api/audit', auditRoutes);
 
 // Dummy data
 const equipmentData = [
@@ -100,9 +122,9 @@ const assignments = [
     id: 1,
     equipmentId: 2,
     inspectorId: 1,
-    assignedDate: "2024-01-15",
-    status: "active"
-  }
+    assignedDate: '2024-01-15',
+    status: 'active',
+  },
 ];
 
 // Inspector mock data
@@ -502,30 +524,30 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // Routes
-app.get('/api/v1/equipment', (req, res) => {
+app.get('/api/equipment', (req, res) => {
   res.json(equipmentData);
 });
 
-app.get('/api/v1/equipment/:id', (req, res) => {
-  const equipment = equipmentData.find(e => e.id === parseInt(req.params.id));
+app.get('/api/equipment/:id', (req, res) => {
+  const equipment = equipmentData.find((e) => e.id === parseInt(req.params.id));
   if (!equipment) {
     return res.status(404).json({ error: 'Equipment not found' });
   }
   res.json(equipment);
 });
 
-app.post('/api/v1/equipment', (req, res) => {
+app.post('/api/equipment', (req, res) => {
   const newEquipment = {
     id: equipmentData.length + 1,
     ...req.body,
-    status: 'available'
+    status: 'available',
   };
   equipmentData.push(newEquipment);
   res.status(201).json(newEquipment);
 });
 
-app.put('/api/v1/equipment/:id', (req, res) => {
-  const index = equipmentData.findIndex(e => e.id === parseInt(req.params.id));
+app.put('/api/equipment/:id', (req, res) => {
+  const index = equipmentData.findIndex((e) => e.id === parseInt(req.params.id));
   if (index === -1) {
     return res.status(404).json({ error: 'Equipment not found' });
   }
@@ -533,25 +555,30 @@ app.put('/api/v1/equipment/:id', (req, res) => {
   res.json(equipmentData[index]);
 });
 
-app.get('/api/v1/equipment/assignments', (req, res) => {
+app.get('/api/equipment/assignments', (req, res) => {
   res.json(assignments);
 });
 
-app.post('/api/v1/equipment/assignments', (req, res) => {
+app.post('/api/equipment/assignments', (req, res) => {
+  // Add custom audit information
+  req.auditEntityType = 'EQUIPMENT';
+  req.auditAction = 'assign';
+  req.auditEntityId = req.body.equipmentId;
+
   const newAssignment = {
     id: assignments.length + 1,
     ...req.body,
     assignedDate: new Date().toISOString().split('T')[0],
-    status: 'active'
+    status: 'active',
   };
   assignments.push(newAssignment);
-  
+
   // Update equipment status
-  const equipment = equipmentData.find(e => e.id === req.body.equipmentId);
+  const equipment = equipmentData.find((e) => e.id === req.body.equipmentId);
   if (equipment) {
     equipment.status = 'IN_USE';
   }
-  
+
   res.status(201).json(newAssignment);
 });
 
@@ -573,12 +600,12 @@ app.put('/api/v1/equipment/assignments/:id/return', (req, res) => {
   assignment.notes = req.body.notes;
   
   // Update equipment status
-  const equipment = equipmentData.find(e => e.id === assignment.equipmentId);
+  const equipment = equipmentData.find((e) => e.id === assignment.equipmentId);
   if (equipment) {
     equipment.status = 'available';
     equipment.condition = req.body.returnCondition;
   }
-  
+
   res.json(assignment);
 });
 
@@ -814,14 +841,16 @@ app.delete('/api/v1/customers/:id', (req, res) => {
 });
 
 // Start server with error handling
-app.listen(port, () => {
-  console.log(`Dummy backend server running at http://localhost:${port}`);
-}).on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${port} is already in use. Please use a different port.`);
-    process.exit(1);
-  } else {
-    console.error('Server error:', err);
-    process.exit(1);
-  }
-}); 
+app
+  .listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  })
+  .on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Please use a different port.`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
