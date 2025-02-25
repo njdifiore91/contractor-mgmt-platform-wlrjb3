@@ -157,7 +157,7 @@
         <!-- Status Filter -->
         <div class="col-12 col-md-6">
           <q-select
-            v-model="filters.customerStatus"
+            v-model="filters.status"
             :options="customerStatusOptions"
             label="Status"
             emit-value
@@ -189,6 +189,7 @@ import { defineComponent, ref, computed } from 'vue'; // v3.x
 import { QCard, QSelect, QInput, useQuasar } from 'quasar'; // v2.x
 import { InspectorStatus } from '../../models/inspector.model';
 import { EquipmentType } from '../../models/equipment.model';
+import { CustomerStatus } from '../../models/customer.model';
 import { validateDateRange } from '../../utils/validation.util';
 import debounce from 'lodash/debounce'; // v4.17.21
 
@@ -247,9 +248,9 @@ export default defineComponent({
     ]);
 
     const customerStatusOptions = computed(() => [
-      { label: 'Active', value: 'ACTIVE' },
-      { label: 'Inactive', value: 'INACTIVE' },
-      { label: 'Pending', value: 'PENDING' }
+      { label: 'Active', value: CustomerStatus.Active },
+      { label: 'Inactive', value: CustomerStatus.Inactive },
+      { label: 'Pending', value: CustomerStatus.Pending }
     ]);
 
     const industryOptions = computed(() => [

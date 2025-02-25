@@ -1,119 +1,159 @@
 <template>
-  <QBreadcrumbs
-    v-if="showBreadcrumbs"
-    class="app-breadcrumbs q-px-md q-py-sm bg-grey-2"
-    separator="/"
-    role="navigation"
-    aria-label="Breadcrumb navigation"
-  >
-    <QBreadcrumbsEl
-      v-for="(breadcrumb, index) in breadcrumbs"
-      :key="breadcrumb.path"
-      :label="breadcrumb.label"
-      :to="breadcrumb.path"
-      :aria-current="index === breadcrumbs.length - 1 ? 'page' : undefined"
-      :class="{ 'current-page': index === breadcrumbs.length - 1 }"
-    />
-  </QBreadcrumbs>
+  <div class="breadcrumb-wrapper">
+    <template v-if="showBreadcrumbs && breadcrumbItems.length > 0">
+      <QBreadcrumbs
+        class="app-breadcrumbs q-px-md q-py-sm bg-grey-2"
+        separator="/"
+        role="navigation"
+        aria-label="Breadcrumb navigation"
+        active-color="primary"
+      >
+        <template v-for="(breadcrumb, index) in breadcrumbItems" :key="breadcrumb.path">
+          <QBreadcrumbsEl
+            :label="breadcrumb.label"
+            :to="breadcrumb.path"
+            :aria-current="index === breadcrumbItems.length - 1 ? 'page' : undefined"
+            :class="{ 'current-page': index === breadcrumbItems.length - 1 }"
+          />
+        </template>
+      </QBreadcrumbs>
+    </template>
+  </div>
 </template>
 
-<script lang="ts">
-import { defineComponent, ref, computed } from 'vue';
-import { QBreadcrumbs, QBreadcrumbsEl } from 'quasar'; // ^2.0.0
-import { useRoute } from 'vue-router'; // ^4.0.0
-import { useI18n } from 'vue-i18n'; // ^9.0.0
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { QBreadcrumbs, QBreadcrumbsEl } from 'quasar';
+import { useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { useAuth } from '@/composables/useAuth';
 import { routes } from '@/router/routes';
+import type { RouteRecordRaw } from 'vue-router';
 
 interface BreadcrumbItem {
   label: string;
   path: string;
 }
 
-export default defineComponent({
-  name: 'AppBreadcrumb',
+// Setup composables
+const route = useRoute();
+const { t, te } = useI18n();
+const { checkRouteAccess } = useAuth();
 
-  components: {
-    QBreadcrumbs,
-    QBreadcrumbsEl
-  },
+// State
+const breadcrumbCache = ref<Map<string, BreadcrumbItem[]>>(new Map());
+const isInitialized = ref(false);
 
-  setup() {
-    const route = useRoute();
-    const { t } = useI18n();
-    const { checkRouteAccess } = useAuth();
-    const breadcrumbCache = ref<Map<string, BreadcrumbItem[]>>(new Map());
+// Computed property for breadcrumb visibility
+const showBreadcrumbs = computed(() => {
+  return Boolean(route.path && route.path !== '/' && !route.path.startsWith('/auth'));
+});
 
-    // Computed property for breadcrumb visibility
-    const showBreadcrumbs = computed(() => {
-      return route.path !== '/' && !route.path.startsWith('/auth');
-    });
+// Helper function to find route by path
+const findRouteByPath = (path: string, routeList: RouteRecordRaw[] = []): RouteRecordRaw | null => {
+  if (!path || !Array.isArray(routeList) || routeList.length === 0) return null;
 
-    // Generate breadcrumbs with security validation
-    const breadcrumbs = computed(() => {
-      if (!showBreadcrumbs.value) return [];
-
-      // Check cache first
-      const cachedBreadcrumbs = breadcrumbCache.value.get(route.path);
-      if (cachedBreadcrumbs) return cachedBreadcrumbs;
-
-      const pathSegments = route.path.split('/').filter(Boolean);
-      const breadcrumbItems: BreadcrumbItem[] = [];
-      let currentPath = '';
-
-      // Always add home
-      breadcrumbItems.push({
-        label: t('breadcrumb.home'),
-        path: '/'
-      });
-
-      // Generate breadcrumb trail
-      for (const segment of pathSegments) {
-        currentPath += `/${segment}`;
-        const matchedRoute = routes.find(r => r.path === currentPath);
-
-        if (matchedRoute) {
-          // Validate route access
-          if (!checkRouteAccess(matchedRoute)) continue;
-
-          breadcrumbItems.push({
-            label: formatBreadcrumbLabel(segment),
-            path: currentPath
-          });
-        }
-      }
-
-      // Cache the result
-      breadcrumbCache.value.set(route.path, breadcrumbItems);
-      return breadcrumbItems;
-    });
-
-    // Format breadcrumb labels with i18n support
-    const formatBreadcrumbLabel = (routeName: string): string => {
-      // Try to find translation key
-      const translationKey = `breadcrumb.${routeName}`;
-      const hasTranslation = t.te(translationKey);
-
-      if (hasTranslation) {
-        return t(translationKey);
-      }
-
-      // Fallback to formatted route name
-      return routeName
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-    };
-
-    return {
-      breadcrumbs,
-      showBreadcrumbs
-    };
+  for (const route of routeList) {
+    if (!route) continue;
+    if (route.path === path) return route;
+    
+    if (Array.isArray(route.children) && route.children.length > 0) {
+      const childPath = path.replace(route.path, '').replace(/^\//, '');
+      const childRoute = findRouteByPath(childPath, route.children);
+      if (childRoute) return childRoute;
+    }
   }
+  return null;
+};
+
+// Format breadcrumb labels with i18n support
+const formatBreadcrumbLabel = (routeName: string): string => {
+  if (typeof routeName !== 'string' || !routeName) return '';
+
+  try {
+    // Try to find translation key
+    const translationKey = `breadcrumb.${routeName.toLowerCase()}`;
+    if (te(translationKey)) {
+      return t(translationKey);
+    }
+
+    // Fallback to formatted route name
+    return routeName
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  } catch (error) {
+    console.error('Error formatting breadcrumb label:', error);
+    return routeName;
+  }
+};
+
+// Generate breadcrumbs with security validation
+const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
+  if (!isInitialized.value || !showBreadcrumbs.value || !route.path) {
+    return [];
+  }
+
+  try {
+    // Check cache first
+    const cachedBreadcrumbs = breadcrumbCache.value.get(route.path);
+    if (Array.isArray(cachedBreadcrumbs) && cachedBreadcrumbs.length > 0) {
+      return cachedBreadcrumbs;
+    }
+
+    const items: BreadcrumbItem[] = [];
+    const pathSegments = route.path.split('/').filter(Boolean);
+    let currentPath = '';
+
+    // Always add home
+    items.push({
+      label: t('breadcrumb.home'),
+      path: '/'
+    });
+
+    // Generate breadcrumb trail
+    for (const segment of pathSegments) {
+      if (!segment) continue;
+      
+      currentPath += `/${segment}`;
+      const matchedRoute = findRouteByPath(currentPath, routes);
+
+      if (matchedRoute) {
+        // Skip if no access
+        if (matchedRoute.meta?.allowedRoles && !checkRouteAccess(matchedRoute)) {
+          continue;
+        }
+
+        items.push({
+          label: formatBreadcrumbLabel(segment),
+          path: currentPath
+        });
+      }
+    }
+
+    // Only cache if we have valid items
+    if (items.length > 0) {
+      breadcrumbCache.value.set(route.path, items);
+    }
+
+    return items;
+  } catch (error) {
+    console.error('Error generating breadcrumbs:', error);
+    return [];
+  }
+});
+
+// Initialize component
+onMounted(() => {
+  isInitialized.value = true;
 });
 </script>
 
 <style lang="scss" scoped>
+.breadcrumb-wrapper {
+  width: 100%;
+}
+
 .app-breadcrumbs {
   font-size: clamp(0.75rem, 2vw, 0.875rem);
   font-weight: 500;

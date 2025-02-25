@@ -1,33 +1,29 @@
 import type { App } from 'vue';
-import { Quasar } from 'quasar';
-import type { QuasarPluginOptions } from 'quasar';
 import { createPinia } from 'pinia';
 import type { Router } from 'vue-router';
+import { createI18n } from 'vue-i18n';
 
-// Import Quasar css
-import '@quasar/extras/material-icons/material-icons.css';
-import 'quasar/src/css/index.sass';
+// Import translations
+import en from '@/locales/en.json';
+import es from '@/locales/es.json';
 
 export function setupVue(app: App, router: Router) {
-  // Configure Quasar
-  const quasarOptions: Partial<QuasarPluginOptions> = {
-    config: {
-      brand: {
-        primary: '#1976D2',
-        secondary: '#26A69A',
-        accent: '#9C27B0',
-        dark: '#1D1D1D',
-        positive: '#21BA45',
-        negative: '#C10015',
-        info: '#31CCEC',
-        warning: '#F2C037'
-      }
-    },
-    plugins: {}
-  };
+  // Debug log to check translations
+  console.log('Loading translations:', { en, es });
+
+  // Configure i18n
+  const i18n = createI18n({
+    legacy: false,
+    locale: 'en',
+    fallbackLocale: 'en',
+    messages: {
+      en,
+      es
+    }
+  });
 
   // Install plugins
-  app.use(Quasar, quasarOptions);
+  app.use(i18n);
   app.use(createPinia());
   app.use(router);
 

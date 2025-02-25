@@ -15,6 +15,9 @@ export default defineConfig({
       script: {
         defineModel: true,
         propsDestructure: true,
+        // Enable TypeScript features
+        refSugar: true,
+        reactivityTransform: true,
       },
     }),
     quasar(),
@@ -26,6 +29,7 @@ export default defineConfig({
       '@dummy-backend': fileURLToPath(new URL('./dummy-backend/src', import.meta.url)),
     },
     extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json', '.vue'],
+    preserveSymlinks: true,
   },
 
   css: {
@@ -90,6 +94,10 @@ export default defineConfig({
 
   optimizeDeps: {
     include: ['vue', 'pinia', 'quasar', '@vueuse/core'],
+    exclude: [],
+    esbuildOptions: {
+      target: 'esnext',
+    },
   },
 
   esbuild: {

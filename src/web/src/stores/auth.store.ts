@@ -78,8 +78,28 @@ export const useAuthStore = defineStore('auth', {
         authenticated: true,
         tokens: null,
         session: null,
-        user: null,
-        authStatus: AuthStatus.UNAUTHENTICATED,
+        user: {
+            id: 1,
+            email: 'john.doe@example.com',
+            firstName: 'John',
+            lastName: 'Doe',
+            phoneNumber: null,
+            isActive: true,
+            azureAdB2CId: 'test-id',
+            userRoles: [
+                {
+                    id: 1,
+                    userId: 1,
+                    roleId: 2, // Operations role
+                    assignedAt: new Date(),
+                    revokedAt: null
+                }
+            ],
+            createdAt: new Date(),
+            modifiedAt: null,
+            lastLoginAt: new Date()
+        },
+        authStatus: AuthStatus.AUTHENTICATED,
         securityEvents: [],
         loginAttempts: [],
         mfaChallenge: null,

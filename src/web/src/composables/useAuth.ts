@@ -153,92 +153,122 @@ export function useAuth() {
     isLoading.value = true;
     error.value = null;
 
-    try {
-      const { clearUserSession } = useStorage();
+    const checkRouteAccess = (route: any): boolean => {
+      if (!route.meta?.allowedRoles) return true;
 
-      // Clear all auth state and storage
-      await authStore.clearAuth();
-      await clearUserSession();
+      const allowedRoles = route.meta.allowedRoles;
+      if (allowedRoles.includes('*')) return true;
 
-      // Clear additional storage items
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_session');
-      localStorage.removeItem('user_session');
-      sessionStorage.clear(); // Clear any session storage as well
+      return allowedRoles.some((role: string) => authStore.hasRole(role as UserRoleType));
+    };
 
-      // Reset initialization state
-      isInitialized.value = false;
-
-      // Then redirect to login page
-      await router.replace('/auth/login');
-    } catch (err) {
-      console.error('Logout failed:', err);
-      error.value = 'Failed to logout';
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  const startSessionMonitoring = () => {
-    // Monitor session status
-    setInterval(async () => {
-      const isValid = await checkAuthStatus();
-      if (!isValid) {
-        handleSecurityEvent({
-          type: 'SESSION_INVALID',
-          timestamp: new Date(),
-        });
-      }
-    }, SECURITY_CHECK_INTERVAL);
-  };
-
-  const checkAuthStatus = async (): Promise<boolean> => {
-    try {
-      if (!authStore.isAuthenticated) return false;
-
-      // Check token validity
-      if (authStore.tokens && !authStore.isTokenValid) {
-        await authStore.refreshToken();
-      }
-
-      // Check session validity
-      const timeRemaining = authStore.sessionTimeRemaining;
-      if (timeRemaining <= 0) {
-        await logout();
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Auth status check failed:', error);
-      await logout();
-      return false;
-    }
-  };
-
-  const hasPermission = (permission: string): boolean => {
-    const user = authStore.currentUser;
-    if (!user || !user.permissions) {
-      return false;
-    }
-    return user.permissions.includes(permission);
-  };
-
-  return {
-    isLoading,
-    error,
-    currentUser,
-    isAuthenticated,
-    mfaRequired,
-    securityStatus,
-    isInitialized,
-    initializeAuth,
-    checkAuthStatus,
-    handleSecurityEvent,
-    logout,
-    login,
-    hasPermission,
-    validateSession,
-    refreshToken,
+    return {
+      isLoading,
+      error,
+      currentUser,
+      isAuthenticated,
+      mfaRequired,
+      securityStatus,
+      isInitialized,
+      initializeAuth,
+      checkAuthStatus,
+      handleSecurityEvent,
+      logout,
+      login,
+      hasPermission,
+      validateSession,
+      refreshToken,
+      checkRouteAccess,
+    };
   };
 }
+
+// try {
+//       const { clearUserSession } = useStorage();
+
+//       // Clear all auth state and storage
+//       await authStore.clearAuth();
+//       await clearUserSession();
+
+//       // Clear additional storage items
+//       localStorage.removeItem('auth_token');
+//       localStorage.removeItem('auth_session');
+//       localStorage.removeItem('user_session');
+//       sessionStorage.clear(); // Clear any session storage as well
+
+//       // Reset initialization state
+//       isInitialized.value = false;
+
+//       // Then redirect to login page
+//       await router.replace('/auth/login');
+//     } catch (err) {
+//       console.error('Logout failed:', err);
+//       error.value = 'Failed to logout';
+//     } finally {
+//       isLoading.value = false;
+//     }
+//   };
+
+//   const startSessionMonitoring = () => {
+//     // Monitor session status
+//     setInterval(async () => {
+//       const isValid = await checkAuthStatus();
+//       if (!isValid) {
+//         handleSecurityEvent({
+//           type: 'SESSION_INVALID',
+//           timestamp: new Date(),
+//         });
+//       }
+//     }, SECURITY_CHECK_INTERVAL);
+//   };
+
+//   const checkAuthStatus = async (): Promise<boolean> => {
+//     try {
+//       if (!authStore.isAuthenticated) return false;
+
+//       // Check token validity
+//       if (authStore.tokens && !authStore.isTokenValid) {
+//         await authStore.refreshToken();
+//       }
+
+//       // Check session validity
+//       const timeRemaining = authStore.sessionTimeRemaining;
+//       if (timeRemaining <= 0) {
+//         await logout();
+//         return false;
+//       }
+
+//       return true;
+//     } catch (error) {
+//       console.error('Auth status check failed:', error);
+//       await logout();
+//       return false;
+//     }
+//   };
+
+//   const hasPermission = (permission: string): boolean => {
+//     const user = authStore.currentUser;
+//     if (!user || !user.permissions) {
+//       return false;
+//     }
+//     return user.permissions.includes(permission);
+//   };
+
+//   return {
+//     isLoading,
+//     error,
+//     currentUser,
+//     isAuthenticated,
+//     mfaRequired,
+//     securityStatus,
+//     isInitialized,
+//     initializeAuth,
+//     checkAuthStatus,
+//     handleSecurityEvent,
+//     logout,
+//     login,
+//     hasPermission,
+//     validateSession,
+//     refreshToken,
+//   };
+// }

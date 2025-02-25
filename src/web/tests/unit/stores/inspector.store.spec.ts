@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'; // ^0.34.0
 import { setActivePinia, createPinia } from 'pinia'; // ^2.1.0
-import { GeographyPoint } from '@types/microsoft-spatial'; // v7.12.2
+import { Inspector, InspectorStatus, GeographyPoint } from '../../../src/models/inspector.model';
 import { useInspectorStore } from '@/stores/inspector.store';
 import { useNotificationStore } from '@/stores/notification.store';
-import { InspectorStatus } from '@/models/inspector.model';
 import * as inspectorApi from '@/api/inspector.api';
 
 // Mock the API module
