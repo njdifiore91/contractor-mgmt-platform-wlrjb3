@@ -11,6 +11,7 @@ import type {
   AuditStatistics,
 } from '../models/audit.model';
 import auditApiClient from '../api/audit.api';
+import { AuditService } from '../services/audit.service';
 
 export function useAuditLog() {
   const logs = ref<AuditLogEntry[]>([]);
@@ -18,6 +19,7 @@ export function useAuditLog() {
   const isLoading = ref(false);
   const error = ref<string | null>(null);
   const statistics = ref<AuditStatistics | null>(null);
+  const auditService = AuditService.getInstance();
 
   const fetchLogs = async (
     filters: AuditLogFilters = {},
@@ -56,6 +58,15 @@ export function useAuditLog() {
     }
   };
 
+  const logAction = async (
+    entityType: string,
+    entityId: string | number,
+    action: string,
+    details: Record<string, unknown> = {}
+  ): Promise<void> => {
+    return auditService.logAction(entityType, entityId.toString(), action, details);
+  };
+
   return {
     logs,
     total,
@@ -64,5 +75,6 @@ export function useAuditLog() {
     statistics,
     fetchLogs,
     fetchStatistics,
+    logAction
   };
 }
