@@ -11,6 +11,7 @@ const SECURITY_CHECK_INTERVAL = 30 * 1000; // 30 seconds
 
 // Navigation attempt tracking
 let navigationAttempts: Date[] = [];
+let securityInterval: number;
 
 // Add TEST_USERS at the top with the role mapping
 const TEST_USERS: Record<string, string> = {
@@ -42,26 +43,30 @@ const setupAuthGuard = async (
       return next();
     }
 
-    // Initialize auth
+    // Check local storage first before initialization
+    const hasLocalStorageSession = localStorage.getItem('auth_token') || localStorage.getItem('msal.token');
+    
+    // Initialize auth with a grace period if we have a local session
     const isInitialized = await auth.initializeAuth().catch((err) => {
-      console.error('Auth initialization failed:', err);
-      return false;
+      console.warn('Auth initialization warning:', err);
+      // Return true if we have a local session, giving a grace period
+      return !!hasLocalStorageSession;
     });
 
-    if (!isInitialized) {
+    if (!isInitialized && !hasLocalStorageSession) {
       return next({
         path: '/auth/login',
         query: { redirect: to.fullPath },
       });
     }
 
-    // Rate limiting check
+    // Rate limiting check with a more forgiving approach during initialization
     const now = Date.now();
     navigationAttempts = navigationAttempts.filter(
       (attempt) => now - attempt.getTime() < RATE_LIMIT_WINDOW
     );
 
-    if (navigationAttempts.length >= NAVIGATION_RATE_LIMIT) {
+    if (navigationAttempts.length >= NAVIGATION_RATE_LIMIT && !hasLocalStorageSession) {
       throw new Error('Navigation rate limit exceeded');
     }
 
@@ -184,15 +189,22 @@ router.beforeEach(setupTitleGuard);
 router.onError(setupErrorBoundary);
 
 // Setup security monitoring interval
-let securityInterval: number;
-
 router.isReady().then(() => {
+  let consecutiveFailures = 0;
   securityInterval = window.setInterval(() => {
     const auth = useAuth();
     if (auth) {
-      auth.checkAuthStatus().catch((error) => {
-        console.error('Security check failed:', error);
-        router.push('/auth/login');
+      auth.checkAuthStatus().then(() => {
+        consecutiveFailures = 0;
+      }).catch((error) => {
+        consecutiveFailures++;
+        console.warn('Security check warning:', error);
+        
+        // Only redirect after multiple consecutive failures
+        if (consecutiveFailures >= 3) {
+          console.error('Multiple security check failures, redirecting to login');
+          router.push('/auth/login');
+        }
       });
     }
   }, SECURITY_CHECK_INTERVAL);
