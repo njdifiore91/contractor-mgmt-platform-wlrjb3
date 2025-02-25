@@ -65,7 +65,7 @@
           <q-table
             :rows="filteredLogs"
             :columns="columns"
-            :loading="isLoading"
+            :loading="loading"
             row-key="id"
             :pagination="pagination"
             @update:pagination="handlePaginationUpdate"
@@ -101,23 +101,57 @@
               <q-card>
                 <q-card-section>
                   <div class="text-h6">Actions by Type</div>
-                  <canvas ref="actionChart"></canvas>
+                  <div class="q-pa-md">
+                    <div
+                      v-for="(count, action) in statistics?.actionDistribution"
+                      :key="action"
+                      class="q-mb-sm"
+                    >
+                      <div class="row items-center">
+                        <div class="col-6">{{ action }}</div>
+                        <div class="col-6">
+                          <q-linear-progress
+                            :value="
+                              count /
+                              Math.max(...Object.values(statistics?.actionDistribution || {}))
+                            "
+                            :color="getActionColor(action)"
+                            class="q-mt-sm"
+                          />
+                        </div>
+                      </div>
+                      <div class="text-caption text-right">{{ count }} actions</div>
+                    </div>
+                  </div>
                 </q-card-section>
               </q-card>
             </div>
             <div class="col-12 col-md-6">
               <q-card>
                 <q-card-section>
-                  <div class="text-h6">Activity Over Time</div>
-                  <canvas ref="timelineChart"></canvas>
-                </q-card-section>
-              </q-card>
-            </div>
-            <div class="col-12">
-              <q-card>
-                <q-card-section>
                   <div class="text-h6">Entity Type Distribution</div>
-                  <canvas ref="entityChart"></canvas>
+                  <div class="q-pa-md">
+                    <div
+                      v-for="(count, entity) in statistics?.entityDistribution"
+                      :key="entity"
+                      class="q-mb-sm"
+                    >
+                      <div class="row items-center">
+                        <div class="col-6">{{ entity }}</div>
+                        <div class="col-6">
+                          <q-linear-progress
+                            :value="
+                              count /
+                              Math.max(...Object.values(statistics?.entityDistribution || {}))
+                            "
+                            color="primary"
+                            class="q-mt-sm"
+                          />
+                        </div>
+                      </div>
+                      <div class="text-caption text-right">{{ count }} records</div>
+                    </div>
+                  </div>
                 </q-card-section>
               </q-card>
             </div>
@@ -147,23 +181,17 @@
 
 <script setup lang="ts">
   import { ref, onMounted, computed, watch } from 'vue';
-  import { useAuditLog } from '@/composables/useAuditLog';
   import { formatDate } from '@/utils/date.util';
-  import { Chart } from 'chart.js/auto';
-  import type { ChartConfiguration } from 'chart.js';
   import { useQuasar } from 'quasar';
+  import { useAuditStore } from '@/stores/audit.store';
 
   const $q = useQuasar();
-  const { logs, total, isLoading, error, fetchLogs, fetchStatistics } = useAuditLog();
+  const auditStore = useAuditStore();
 
   // State
   const activeTab = ref('logs');
   const showDetailsDialog = ref(false);
   const selectedLogDetails = ref<string | null>(null);
-  const actionChart = ref<HTMLCanvasElement | null>(null);
-  const timelineChart = ref<HTMLCanvasElement | null>(null);
-  const entityChart = ref<HTMLCanvasElement | null>(null);
-  let charts: Chart[] = [];
 
   const filters = ref({
     search: '',
@@ -234,6 +262,12 @@
   ];
 
   // Computed properties
+  const logs = computed(() => auditStore.logs);
+  const total = computed(() => auditStore.total);
+  const loading = computed(() => auditStore.loading);
+  const error = computed(() => auditStore.error);
+  const statistics = computed(() => auditStore.statistics);
+
   const filteredLogs = computed(() => {
     let filtered = [...logs.value];
 
@@ -258,16 +292,25 @@
     return filtered;
   });
 
-  const entityTypes = computed(() => [...new Set(logs.value.map((log) => log.entityType))].sort());
+  const entityTypes = ['USER', 'ROLE', 'PERMISSION', 'EQUIPMENT', 'SYSTEM'];
 
-  const actionTypes = computed(() => [...new Set(logs.value.map((log) => log.action))].sort());
+  const actionTypes = ['create', 'update', 'delete', 'view', 'export', 'login'];
 
   // Methods
   const handleSearch = async () => {
-    await fetchLogs(filters.value, {
+    const searchFilters = {
+      search: filters.value.search,
+      entityType: filters.value.entityType || undefined,
+      action: filters.value.action || undefined,
+      startDate: filters.value.startDate || undefined,
+      endDate: filters.value.endDate || undefined,
+    };
+
+    await auditStore.fetchLogs(searchFilters, {
       page: pagination.value.page,
       rowsPerPage: pagination.value.rowsPerPage,
     });
+    pagination.value.rowsNumber = total.value;
   };
 
   const handleFilterChange = async () => {
@@ -293,163 +336,38 @@
     showDetailsDialog.value = true;
   };
 
-  const getActionColor = (action: string) => {
-    const actionColors = {
+  const getActionColor = (action: string): string => {
+    const colors: Record<string, string> = {
       create: 'positive',
       update: 'warning',
       delete: 'negative',
-      access: 'info',
-    } as const;
-    return actionColors[action.toLowerCase() as keyof typeof actionColors] || 'grey';
+      view: 'info',
+      export: 'purple',
+      login: 'primary',
+    };
+    return colors[action] || 'grey';
   };
-
-  const destroyCharts = () => {
-    charts.forEach((chart) => chart.destroy());
-    charts = [];
-  };
-
-  const initCharts = async () => {
-    try {
-      destroyCharts();
-
-      const stats = await fetchStatistics();
-
-      // Action Distribution Chart
-      if (actionChart.value) {
-        const actionCtx = actionChart.value.getContext('2d');
-        if (actionCtx) {
-          const actionLabels = Object.keys(stats.actionDistribution);
-          const actionData = Object.values(stats.actionDistribution);
-
-          const config: ChartConfiguration = {
-            type: 'pie',
-            data: {
-              labels: actionLabels,
-              datasets: [
-                {
-                  data: actionData,
-                  backgroundColor: ['#26A69A', '#FFA726', '#EF5350', '#42A5F5', '#7E57C2'],
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-            },
-          };
-
-          charts.push(new Chart(actionCtx, config));
-        }
-      }
-
-      // Timeline Chart
-      if (timelineChart.value) {
-        const timelineCtx = timelineChart.value.getContext('2d');
-        if (timelineCtx) {
-          const timelineLabels = Object.keys(stats.timeline);
-          const timelineData = Object.values(stats.timeline);
-
-          const config: ChartConfiguration = {
-            type: 'line',
-            data: {
-              labels: timelineLabels,
-              datasets: [
-                {
-                  label: 'Activity',
-                  data: timelineData,
-                  borderColor: '#1976D2',
-                  tension: 0.1,
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-              },
-            },
-          };
-
-          charts.push(new Chart(timelineCtx, config));
-        }
-      }
-
-      // Entity Distribution Chart
-      if (entityChart.value) {
-        const entityCtx = entityChart.value.getContext('2d');
-        if (entityCtx) {
-          const entityLabels = Object.keys(stats.entityDistribution);
-          const entityData = Object.values(stats.entityDistribution);
-
-          const config: ChartConfiguration = {
-            type: 'bar',
-            data: {
-              labels: entityLabels,
-              datasets: [
-                {
-                  label: 'Entities',
-                  data: entityData,
-                  backgroundColor: '#1976D2',
-                },
-              ],
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                },
-              },
-            },
-          };
-
-          charts.push(new Chart(entityCtx, config));
-        }
-      }
-    } catch (error) {
-      console.error('Error initializing charts:', error);
-      $q.notify({
-        type: 'negative',
-        message: 'Failed to load statistics',
-        position: 'top',
-      });
-    }
-  };
-
-  // Watch for tab changes to initialize charts
-  watch(activeTab, (newTab) => {
-    if (newTab === 'statistics') {
-      // Add a small delay to ensure DOM is ready
-      setTimeout(() => {
-        initCharts();
-      }, 0);
-    }
-  });
-
-  // Watch for filter changes
-  watch(
-    () => [filters.value.search, filters.value.entityType, filters.value.action],
-    () => {
-      handleFilterChange();
-    },
-    { deep: true }
-  );
 
   // Lifecycle hooks
   onMounted(async () => {
     try {
       await handleSearch();
-    } catch (err) {
-      console.error('Error loading audit logs:', err);
+      if (activeTab.value === 'statistics') {
+        await auditStore.fetchStatistics();
+      }
+    } catch (error) {
+      console.error('Error initializing audit logs page:', error);
       $q.notify({
         type: 'negative',
-        message: 'Failed to load audit logs',
+        message: 'Failed to load audit data',
         position: 'top',
       });
+    }
+  });
+
+  watch(activeTab, async (newTab) => {
+    if (newTab === 'statistics') {
+      await auditStore.fetchStatistics();
     }
   });
 </script>
@@ -471,11 +389,6 @@
       padding: 10px;
       border-radius: 4px;
       font-family: monospace;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: 300px !important;
     }
   }
 </style>

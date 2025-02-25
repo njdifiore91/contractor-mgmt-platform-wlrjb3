@@ -86,8 +86,8 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Create Customer',
               allowedRoles: ['Admin', 'Operations'],
-              layout: 'default'
-            }
+              layout: 'default',
+            },
           },
           {
             path: ':id',
@@ -140,8 +140,8 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Equipment',
               allowedRoles: ['Admin', 'Operations', 'Inspector'],
-              layout: 'default'
-            }
+              layout: 'default',
+            },
           },
           {
             path: 'create',
@@ -162,13 +162,13 @@ export const default_routes: RouteRecordRaw[] = [
               requiresAuth: true,
               title: 'Equipment Details',
               allowedRoles: ['Admin', 'Operations', 'Inspector'],
-              layout: 'default'
-            }
-          }
-        ]
-      }
-    ]
-  }
+              layout: 'default',
+            },
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 // Admin-specific routes
@@ -181,6 +181,17 @@ export const admin_routes: RouteRecordRaw[] = [
       allowedRoles: ['Admin'],
     },
     children: [
+      {
+        path: '',
+        name: 'admin-dashboard',
+        component: () => import('../pages/admin/AdminDashboardPage.vue'),
+        meta: {
+          requiresAuth: true,
+          title: 'Admin Dashboard',
+          allowedRoles: ['Admin'],
+          layout: 'admin',
+        },
+      },
       {
         path: 'users',
         name: 'user-management',

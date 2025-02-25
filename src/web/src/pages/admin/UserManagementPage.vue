@@ -126,15 +126,15 @@
 <script setup lang="ts">
   import { ref, reactive, computed, onMounted, watch } from 'vue';
   import { useQuasar } from 'quasar';
-  import { useUser } from '@/composables/useUser';
   import type { IUser, UserRole } from '@/models/user.model';
   import { getRoleType, UserRoleType } from '@/models/user.model';
   import { debounce } from 'lodash';
   import { useEncryption } from '@/composables/useEncryption';
   import { auditService } from '@/services/audit.service';
+  import { useUserStore } from '@/stores/user.store';
 
   const $q = useQuasar();
-  const { users, loading, error, createUser, updateUser, fetchUsers, deleteUser } = useUser();
+  const userStore = useUserStore();
   const { decrypt } = useEncryption();
 
   const userDialog = ref(false);
@@ -148,8 +148,8 @@
       label: 'Email',
       field: (row: any) => {
         try {
-          const decrypted = decrypt(row.email);
-          return decrypted || row.email;
+          const decrypted = decrypt(row.email) || row.email;
+          return decrypted;
         } catch (error) {
           console.warn('Failed to decrypt email:', error);
           return row.email;
@@ -210,7 +210,8 @@
         sortOrder: 'asc' as const,
       };
 
-      await fetchUsers(searchParams);
+      await userStore.fetchUsers(searchParams);
+      pagination.rowsNumber = userStore.total;
     } catch (error) {
       $q.notify({
         type: 'negative',
@@ -248,7 +249,7 @@
       }
 
       if (editingUser.value) {
-        await updateUser(editingUser.value.id, userForm.value);
+        await userStore.updateExistingUser(editingUser.value.id, userForm.value);
         // Log user update action
         await auditService.logAction('USER', editingUser.value.id.toString(), 'update', {
           changes: userForm.value,
@@ -260,7 +261,7 @@
           position: 'top',
         });
       } else {
-        const newUser = await createUser(userForm.value);
+        const newUser = await userStore.createNewUser(userForm.value);
         // Log user creation action
         await auditService.logAction('USER', newUser.id.toString(), 'create', {
           userData: userForm.value,
@@ -287,16 +288,35 @@
     $q.dialog({
       title: 'Confirm Delete',
       message: `Are you sure you want to delete ${user.firstName} ${user.lastName}?`,
-      cancel: true,
       persistent: true,
+      ok: {
+        color: 'negative',
+        label: 'Delete',
+        icon: 'delete',
+      },
+      cancel: {
+        color: 'grey',
+        flat: true,
+      },
     }).onOk(async () => {
       try {
+        // Store user data for audit log before deletion
+        const userData = {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          roles: user.userRoles,
+        };
+
         // Call the delete API endpoint
-        await deleteUser(user.id);
+        await userStore.removeUser(user.id);
 
         // Log the deletion action
         await auditService.logAction('USER', user.id.toString(), 'delete', {
-          userData: user,
+          deletedUser: userData,
+          performedBy: 'admin@example.com', // In real app, this would be the current user
+          timestamp: new Date().toISOString(),
         });
 
         // Refresh the user list
@@ -306,6 +326,7 @@
           type: 'positive',
           message: 'User deleted successfully',
           position: 'top',
+          timeout: 2000,
         });
       } catch (error) {
         console.error('Failed to delete user:', error);
@@ -313,6 +334,7 @@
           type: 'negative',
           message: 'Failed to delete user',
           position: 'top',
+          timeout: 2000,
         });
       }
     });
@@ -337,6 +359,11 @@
       handleSearch();
     }, 300)
   );
+
+  // Computed properties for template
+  const users = computed(() => userStore.users);
+  const loading = computed(() => userStore.loading);
+  const error = computed(() => userStore.error);
 </script>
 
 <style lang="scss" scoped>

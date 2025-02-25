@@ -4,22 +4,15 @@
  * @version 1.0.0
  */
 
-import { defineStore } from 'pinia'; // ^2.1.0
-import { storeToRefs } from 'pinia'; // ^2.1.0
-import { debounce } from 'lodash'; // ^4.17.21
-import { useEncryption } from '@/composables/useEncryption';
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
 import type { IUser } from '@/models/user.model';
-import type { ISearchParams } from '@/models/search.model';
+import { getUsers, createUser, updateUser, deleteUser } from '@/api/user.api';
 import { useNotificationStore } from './notification.store';
-import axios from 'axios';
 
-// Constants
-const DEFAULT_PAGE_SIZE = 20;
-const DEBOUNCE_DELAY = 300;
-const CACHE_DURATION = 300000; // 5 minutes in milliseconds
-const API_BASE_URL = '/api'; // Changed to relative path
+// Constants for store configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Types
 interface SearchParams {
   pageNumber: number;
   pageSize: number;
@@ -29,277 +22,144 @@ interface SearchParams {
   sortOrder: 'asc' | 'desc';
 }
 
-interface CacheEntry<T> {
-  data: T;
-  timestamp: number;
-}
+export const useUserStore = defineStore('user', () => {
+  // State initialization
+  const users = ref<IUser[]>([]);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+  const searchParams = ref<SearchParams>({
+    pageNumber: 1,
+    pageSize: 20,
+    searchTerm: '',
+    isActive: true,
+    sortBy: 'lastName',
+    sortOrder: 'asc',
+  });
+  const total = ref<number>(0);
+  const selectedUser = ref<IUser | null>(null);
+  const lastSync = ref<Date | null>(null);
 
-interface UserState {
-  users: IUser[];
-  loading: boolean;
-  error: boolean;
-  errorMessage: string;
-  searchParams: SearchParams;
-  totalCount: number;
-  selectedUser: IUser | null;
-  cache: Record<string, CacheEntry<IUser[]>>;
-  pendingUpdates: Map<string | number, Partial<IUser>>;
-}
+  // Store instance for notifications
+  const notificationStore = useNotificationStore();
 
-// Store implementation
-export const useUserStore = defineStore('user', {
-  state: (): UserState => ({
-    users: [],
-    loading: false,
-    error: false,
-    errorMessage: '',
-    searchParams: {
-      pageNumber: 1,
-      pageSize: DEFAULT_PAGE_SIZE,
-      searchTerm: '',
-      isActive: true,
-      sortBy: 'lastName',
-      sortOrder: 'asc',
-    },
-    totalCount: 0,
-    selectedUser: null,
-    cache: {},
-    pendingUpdates: new Map(),
-  }),
+  // Computed properties
+  const isCacheValid = computed(() => {
+    if (!lastSync.value) return false;
+    return new Date().getTime() - lastSync.value.getTime() < CACHE_DURATION;
+  });
 
-  getters: {
-    /**
-     * Returns users with decrypted PII data for display
-     */
-    decryptedUsers(): IUser[] {
-      const { decrypt } = useEncryption();
-      return this.users.map((user) => ({
-        ...user,
-        email: decrypt(user.email),
-        phoneNumber: user.phoneNumber ? decrypt(user.phoneNumber) : null,
-      }));
-    },
+  const activeUsers = computed(() => users.value.filter((user) => user.isActive));
 
-    /**
-     * Returns active users only
-     */
-    activeUsers(): IUser[] {
-      return this.users.filter((user) => user.isActive);
-    },
+  // Actions
+  const fetchUsers = async (params: Partial<SearchParams> = {}, forceRefresh = false) => {
+    if (!forceRefresh && isCacheValid.value) {
+      return { users: users.value, total: total.value };
+    }
 
-    /**
-     * Generates cache key based on search parameters
-     */
-    cacheKey(): string {
-      return JSON.stringify(this.searchParams);
-    },
-  },
+    loading.value = true;
+    error.value = null;
 
-  actions: {
-    /**
-     * Fetches users based on search parameters with caching
-     */
-    async fetchUsers(params: ISearchParams): Promise<void> {
-      try {
-        this.loading = true;
-        const cacheKey = this.cacheKey;
-        const cachedData = this.cache[cacheKey];
+    try {
+      const mergedParams = { ...searchParams.value, ...params };
+      const response = await getUsers(mergedParams);
+      users.value = response.users;
+      total.value = response.total;
+      lastSync.value = new Date();
 
-        // Check cache validity
-        if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-          this.users = cachedData.data;
-          return;
-        }
-
-        const response = await axios.get(`${API_BASE_URL}/users`, {
-          params: {
-            pageNumber: params.pageNumber || 1,
-            pageSize: params.pageSize || DEFAULT_PAGE_SIZE,
-            searchTerm: params.searchTerm || '',
-            isActive: params.isActive,
-            sortBy: params.sortBy || 'lastName',
-            sortOrder: params.sortOrder || 'asc',
-          },
-        });
-
-        // Check if response has the expected structure
-        if (response.data && Array.isArray(response.data.users)) {
-          this.users = response.data.users;
-          this.totalCount = response.data.total || 0;
-
-          // Update cache
-          this.cache[cacheKey] = {
-            data: this.users,
-            timestamp: Date.now(),
-          };
-        } else {
-          throw new Error('Invalid response format from server');
-        }
-      } catch (error: any) {
-        const errorMessage =
-          error.response?.data?.message || error.message || 'Failed to fetch users';
-        this.handleError(errorMessage, error);
-        throw error;
-      } finally {
-        this.loading = false;
+      if (forceRefresh) {
+        notificationStore.success('Users list updated successfully');
       }
-    },
 
-    /**
-     * Fetches a single user by ID
-     */
-    async fetchUserById(id: number): Promise<void> {
-      try {
-        this.loading = true;
-        const response = await axios.get(`${API_BASE_URL}/users/${id}`);
-        this.selectedUser = response.data;
-      } catch (error) {
-        this.handleError(`Error fetching user ${id}`, error);
-      } finally {
-        this.loading = false;
+      return response;
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to fetch users: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const createNewUser = async (userData: Partial<IUser>): Promise<IUser> => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const newUser = await createUser(userData);
+      users.value.push(newUser);
+      total.value++;
+      notificationStore.success('User created successfully');
+      return newUser;
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to create user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  const updateExistingUser = async (id: number, updates: Partial<IUser>): Promise<void> => {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const updatedUser = await updateUser(id, updates);
+      const index = users.value.findIndex((user) => user.id === id);
+      if (index !== -1) {
+        users.value[index] = updatedUser;
       }
-    },
+      notificationStore.success('User updated successfully');
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to update user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
 
-    /**
-     * Creates a new user with encrypted PII data
-     */
-    async createUser(userData: Partial<IUser>): Promise<IUser> {
-      try {
-        this.loading = true;
-        const { encrypt } = useEncryption();
+  const removeUser = async (id: number): Promise<void> => {
+    loading.value = true;
+    error.value = null;
 
-        const encryptedData = {
-          ...userData,
-          email: encrypt(userData.email!),
-          phoneNumber: userData.phoneNumber ? encrypt(userData.phoneNumber) : null,
-        };
+    try {
+      await deleteUser(id);
+      users.value = users.value.filter((user) => user.id !== id);
+      total.value--;
+      notificationStore.success('User deleted successfully');
+    } catch (err: any) {
+      error.value = err.message;
+      notificationStore.error(`Failed to delete user: ${err.message}`);
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
 
-        const response = await axios.post(`${API_BASE_URL}/users`, encryptedData);
-        const newUser = response.data;
-        this.users.unshift(newUser);
-        this.invalidateCache();
-        useNotificationStore().success('User created successfully');
-        return newUser;
-      } catch (error) {
-        this.handleError('Error creating user', error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
-    },
+  const clearCache = () => {
+    lastSync.value = null;
+  };
 
-    /**
-     * Updates user with optimistic updates and rollback
-     */
-    async updateUser(id: string | number, updates: Partial<IUser>): Promise<void> {
-      try {
-        const { encrypt } = useEncryption();
-        const userIndex = this.users.findIndex((u) => u.id === id);
+  return {
+    // State
+    users,
+    loading,
+    error,
+    searchParams,
+    total,
+    selectedUser,
+    lastSync,
 
-        if (userIndex === -1) {
-          throw new Error('User not found');
-        }
+    // Getters
+    isCacheValid,
+    activeUsers,
 
-        // Store original state for rollback
-        this.pendingUpdates.set(id, this.users[userIndex]);
-
-        // Optimistic update
-        this.users[userIndex] = { ...this.users[userIndex], ...updates };
-
-        // Encrypt PII data
-        const encryptedUpdates = {
-          ...updates,
-          email: updates.email ? encrypt(updates.email) : undefined,
-          phoneNumber: updates.phoneNumber ? encrypt(updates.phoneNumber) : undefined,
-        };
-
-        // If id is a number, convert it to the MongoDB ObjectId format
-        const mongoId = typeof id === 'number' ? id.toString() : id;
-        await axios.put(`${API_BASE_URL}/users/${mongoId}`, encryptedUpdates);
-
-        this.pendingUpdates.delete(id);
-        this.invalidateCache();
-        useNotificationStore().success('User updated successfully');
-      } catch (error) {
-        // Rollback on error
-        if (this.pendingUpdates.has(id)) {
-          const originalData = this.pendingUpdates.get(id)!;
-          const userIndex = this.users.findIndex((u) => u.id === id);
-          if (userIndex !== -1) {
-            this.users[userIndex] = { ...this.users[userIndex], ...originalData };
-          }
-          this.pendingUpdates.delete(id);
-        }
-        this.handleError('Error updating user', error);
-        throw error;
-      }
-    },
-
-    /**
-     * Updates search parameters with debounced search
-     */
-    setSearchParams: debounce(function (this: any, params: Partial<SearchParams>) {
-      this.searchParams = { ...this.searchParams, ...params };
-      this.fetchUsers(this.searchParams as ISearchParams);
-    }, DEBOUNCE_DELAY),
-
-    /**
-     * Invalidates the cache for a specific key or all cache
-     */
-    invalidateCache(cacheKey?: string): void {
-      if (cacheKey) {
-        delete this.cache[cacheKey];
-      } else {
-        this.cache = {};
-      }
-    },
-
-    /**
-     * Handles errors with proper logging and notification
-     */
-    handleError(message: string, error: any): void {
-      console.error(`${message}:`, error);
-      this.error = true;
-      this.errorMessage = error.message || 'An unexpected error occurred';
-      useNotificationStore().error(this.errorMessage);
-    },
-
-    /**
-     * Resets store state to initial values
-     */
-    resetState(): void {
-      this.users = [];
-      this.loading = false;
-      this.error = false;
-      this.errorMessage = '';
-      this.selectedUser = null;
-      this.totalCount = 0;
-      this.cache = {};
-      this.pendingUpdates.clear();
-    },
-
-    /**
-     * Deletes a user with proper error handling and cache invalidation
-     */
-    async deleteUser(id: string | number): Promise<void> {
-      try {
-        this.loading = true;
-        // If id is a number, convert it to the MongoDB ObjectId format
-        const mongoId = typeof id === 'number' ? id.toString() : id;
-        await axios.delete(`${API_BASE_URL}/users/${mongoId}`);
-
-        // Remove user from local state
-        this.users = this.users.filter((user) => user.id !== id);
-
-        // Invalidate cache
-        this.invalidateCache();
-        useNotificationStore().success('User deleted successfully');
-      } catch (error) {
-        this.handleError('Error deleting user', error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
-    },
-  },
+    // Actions
+    fetchUsers,
+    createNewUser,
+    updateExistingUser,
+    removeUser,
+    clearCache,
+  };
 });

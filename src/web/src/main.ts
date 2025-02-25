@@ -1,10 +1,10 @@
 import { createApp } from 'vue';
 import { ApplicationInsights } from '@microsoft/applicationinsights-web';
 import { PublicClientApplication } from '@azure/msal-browser';
-import { 
-  Quasar, 
-  Notify, 
-  Loading, 
+import {
+  Quasar,
+  Notify,
+  Loading,
   Dialog,
   QLayout,
   QHeader,
@@ -35,7 +35,7 @@ import {
   QChip,
   QBadge,
   QDialog,
-  QBtnGroup
+  QBtnGroup,
 } from 'quasar';
 
 // Import TailwindCSS styles
@@ -96,7 +96,7 @@ app.use(Quasar, {
   plugins: {
     Notify,
     Loading,
-    Dialog
+    Dialog,
   },
   components: {
     QLayout,
@@ -128,7 +128,7 @@ app.use(Quasar, {
     QChip,
     QBadge,
     QDialog,
-    QBtnGroup
+    QBtnGroup,
   },
   config: {
     brand: {
@@ -139,19 +139,18 @@ app.use(Quasar, {
       positive: '#21BA45',
       negative: '#C10015',
       info: '#31CCEC',
-      warning: '#F2C037'
+      warning: '#F2C037',
     },
     notify: {
       position: 'top-right',
       timeout: 2500,
-      textColor: 'white'
-    }
-  }
+      textColor: 'white',
+    },
+  },
 });
 
 // Make app instance available globally
 (window as any).vueApp = app;
-
 
 // Configure security monitoring
 function setupSecurity(app: any) {

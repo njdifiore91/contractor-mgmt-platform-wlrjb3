@@ -6,11 +6,10 @@
  */
 
 import { ref, computed, onUnmounted } from 'vue';
-import { storeToRefs } from 'pinia';
 import { debounce } from 'lodash';
 import type { IUser } from '@/models/user.model';
 import { UserRoleType } from '@/models/user.model';
-import { useUserStore } from '@/stores/user.store';
+import userApiClient from '@/api/user.api';
 
 // Constants
 const SEARCH_DEBOUNCE_MS = 300;
@@ -33,8 +32,10 @@ interface ISearchParams {
  * Composable for user management functionality
  */
 export function useUser() {
-  const userStore = useUserStore();
-  const { users, loading, error, selectedUser } = storeToRefs(userStore);
+  const users = ref<IUser[]>([]);
+  const loading = ref(false);
+  const error = ref<string | null>(null);
+  const selectedUser = ref<IUser | null>(null);
 
   const searchParams = ref<ISearchParams>({
     pageNumber: 1,
@@ -52,50 +53,66 @@ export function useUser() {
 
   const fetchUsers = async (params?: ISearchParams) => {
     try {
-      await userStore.fetchUsers(params || searchParams.value);
+      loading.value = true;
+      error.value = null;
+      const response = await userApiClient.getUsers(params || searchParams.value);
+      users.value = response.users;
+      return response;
     } catch (err) {
       console.error('Error fetching users:', err);
+      error.value = 'Failed to fetch users';
       throw err;
-    }
-  };
-
-  const getUserById = async (id: number): Promise<IUser> => {
-    try {
-      await userStore.fetchUserById(id);
-      if (!selectedUser.value) {
-        throw new Error('User not found');
-      }
-      return selectedUser.value;
-    } catch (err) {
-      console.error(`Error fetching user ${id}:`, err);
-      throw err;
+    } finally {
+      loading.value = false;
     }
   };
 
   const createUser = async (userData: Partial<IUser>): Promise<IUser> => {
     try {
-      return await userStore.createUser(userData);
+      loading.value = true;
+      error.value = null;
+      const newUser = await userApiClient.createUser(userData);
+      users.value = [...users.value, newUser];
+      return newUser;
     } catch (err) {
       console.error('Error creating user:', err);
+      error.value = 'Failed to create user';
       throw err;
+    } finally {
+      loading.value = false;
     }
   };
 
   const updateUser = async (id: string | number, updates: Partial<IUser>): Promise<void> => {
     try {
-      await userStore.updateUser(id, updates);
+      loading.value = true;
+      error.value = null;
+      const updatedUser = await userApiClient.updateUser(Number(id), updates);
+      const index = users.value.findIndex((user) => user.id === id);
+      if (index !== -1) {
+        users.value[index] = updatedUser;
+      }
     } catch (err) {
       console.error('Error updating user:', err);
+      error.value = 'Failed to update user';
       throw err;
+    } finally {
+      loading.value = false;
     }
   };
 
   const deleteUser = async (id: string | number): Promise<void> => {
     try {
-      await userStore.deleteUser(id);
+      loading.value = true;
+      error.value = null;
+      await userApiClient.deleteUser(Number(id));
+      users.value = users.value.filter((user) => user.id !== id);
     } catch (err) {
       console.error('Error deleting user:', err);
+      error.value = 'Failed to delete user';
       throw err;
+    } finally {
+      loading.value = false;
     }
   };
 
@@ -118,7 +135,6 @@ export function useUser() {
     searchParams,
     debouncedSearch,
     fetchUsers,
-    getUserById,
     createUser,
     updateUser,
     deleteUser,
