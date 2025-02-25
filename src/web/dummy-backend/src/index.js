@@ -809,19 +809,21 @@ app.delete('/api/v1/customers/:id', (req, res) => {
   }
   customerData.splice(index, 1);
   res.status(204).send();
+// Routes
+app.use('/api/users', userRoutes);
+app.use('/api/audit', auditRoutes);
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
 });
 
-// Start server with error handling
-app
-  .listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  })
-  .on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`Port ${port} is already in use. Please use a different port.`);
-      process.exit(1);
-    } else {
-      console.error('Server error:', err);
-      process.exit(1);
-    }
-  });
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('Using in-memory dummy data storage');
+});
