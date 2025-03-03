@@ -9,6 +9,7 @@ using ServiceProvider.Core.Abstractions;
 using ServiceProvider.Core.Domain.Equipment;
 using ServiceProvider.Core.Domain.Audit;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace ServiceProvider.Services.Equipment.Commands
 {
@@ -124,7 +125,7 @@ namespace ServiceProvider.Services.Equipment.Commands
                 }
 
                 // Create new equipment
-                var equipment = new Equipment(
+                var equipment = new Core.Domain.Equipment.Equipment(
                     command.SerialNumber,
                     command.Model,
                     command.Type);
@@ -137,7 +138,8 @@ namespace ServiceProvider.Services.Equipment.Commands
                 }
 
                 // Begin transaction
-                await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+                await using var transaction = await _context.BeginTransactionAsync(cancellationToken);
+
                 try
                 {
                     // Add equipment

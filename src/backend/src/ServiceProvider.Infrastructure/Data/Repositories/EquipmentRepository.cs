@@ -7,7 +7,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Ardalis.GuardClauses; // v4.0.1
+using Ardalis.GuardClauses;
+using Microsoft.EntityFrameworkCore.Storage; // v4.0.1
 
 namespace ServiceProvider.Infrastructure.Data.Repositories
 {
@@ -15,7 +16,7 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
     /// Repository implementation for equipment-related data access operations with enhanced validation,
     /// error handling, and performance optimizations.
     /// </summary>
-    public class EquipmentRepository
+    public class EquipmentRepository : IEquipmentRepository
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<EquipmentRepository> _logger;
@@ -202,6 +203,33 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
             await _context.SaveChangesAsync(cancellationToken);
 
             _logger.LogInformation("Maintenance recorded for equipment {EquipmentId}", equipmentId);
+        }
+
+        public async Task<bool> CheckConcurrentAssignmentAsync(int commandEquipmentId, CancellationToken cancellationToken)
+        {
+            Guard.Against.NegativeOrZero(commandEquipmentId, nameof(commandEquipmentId));
+            _logger.LogDebug("Checking concurrent assignment for equipment ID: {CommandEquipmentId}", commandEquipmentId);
+
+            var equipment = await _context.Equipment
+                .Include(e => e.Assignments)
+                .FirstOrDefaultAsync(e => e.Id == commandEquipmentId, cancellationToken);
+
+            if (equipment == null)
+            {
+                throw new InvalidOperationException($"Equipment with ID {commandEquipmentId} not found.");
+            }
+
+            var hasActiveAssignment = equipment.Assignments.Any(a => a.IsActive);
+            _logger.LogInformation("Equipment {CommandEquipmentId} has active assignment: {HasActiveAssignment}", commandEquipmentId, hasActiveAssignment);
+
+            return hasActiveAssignment;
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Beginning a new transaction");
+            var transaction = await _context.BeginTransactionAsync(cancellationToken);
+            return transaction;
         }
     }
 }

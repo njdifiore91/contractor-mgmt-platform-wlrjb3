@@ -6,6 +6,7 @@ using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.Core.Domain.Audit;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ServiceProvider.Core.Abstractions
 {
@@ -71,5 +72,7 @@ namespace ServiceProvider.Core.Abstractions
         /// <param name="cancellationToken">A token to observe while waiting for the task to complete.</param>
         /// <returns>A task representing the asynchronous save operation, returning the number of affected records.</returns>
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+        Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
     }
 }

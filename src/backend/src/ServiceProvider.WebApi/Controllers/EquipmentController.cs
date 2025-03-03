@@ -7,11 +7,15 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.RateLimiting;
+using AspNetCoreRateLimit;
 using ServiceProvider.Services.Equipment.Commands;
 using ServiceProvider.Core.Domain.Equipment;
 using ServiceProvider.Core.Domain.Audit;
 using System.Text.Json;
+using Asp.Versioning;
+using ServiceProvider.Core.Abstractions;
+using ServiceProvider.Services.Customers.Commands;
+using ServiceProvider.Services.Equipment.Queries;
 
 namespace ServiceProvider.WebApi.Controllers
 {
@@ -22,7 +26,7 @@ namespace ServiceProvider.WebApi.Controllers
     [ApiVersion("1.0")]
     [Route("api/v1/[controller]")]
     [Authorize(Roles = "Admin,Operations")]
-    [EnableRateLimiting("standard")]
+    //[EnableRateLimiting("standard")]
     public class EquipmentController : ControllerBase
     {
         private readonly IMediator _mediator;
@@ -159,7 +163,7 @@ namespace ServiceProvider.WebApi.Controllers
 
                 var result = await _mediator.Send(command, cancellationToken);
 
-                if (!result)
+                if (result == null)
                 {
                     return NotFound();
                 }
@@ -201,7 +205,7 @@ namespace ServiceProvider.WebApi.Controllers
 
                 var result = await _mediator.Send(command, cancellationToken);
 
-                if (!result)
+                if (result == null)
                 {
                     return NotFound();
                 }
@@ -229,7 +233,7 @@ namespace ServiceProvider.WebApi.Controllers
                 HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0",
                 User.Identity?.IsAuthenticated == true ? int.Parse(User.Identity.Name) : null);
 
-            await _mediator.Send(new CreateAuditLogCommand(auditLog));
+            //await _mediator.Send(new CreateAuditLogCommand(auditLog));
         }
     }
 }

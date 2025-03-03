@@ -16,7 +16,7 @@ namespace ServiceProvider.Common.Constants
         private const string SESSION_PREFIX = "session:";
 
         // Private constructor to prevent instantiation
-        private CacheKeys()
+        static CacheKeys()
         {
             throw new InvalidOperationException($"{nameof(CacheKeys)} is a static utility class and should not be instantiated.");
         }

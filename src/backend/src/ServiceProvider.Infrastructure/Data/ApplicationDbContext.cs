@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ServiceProvider.Infrastructure.Data
 {
@@ -136,6 +137,37 @@ namespace ServiceProvider.Infrastructure.Data
             modelBuilder.Entity<Customer>().HasQueryFilter(e => e.IsActive);
             modelBuilder.Entity<Inspector>().HasQueryFilter(e => e.IsActive);
             modelBuilder.Entity<Equipment>().HasQueryFilter(e => e.IsActive);
+
+            //modelBuilder.Entity<EquipmentAssignment.ConditionChange>().HasNoKey();
+
+            // EquipmentAssignment configuration
+            //modelBuilder.Entity<EquipmentAssignment>(entity =>
+            //{
+            //    entity.HasKey(e => e.Id);
+            //    entity.Property(e => e.Condition).IsRequired().HasMaxLength(100);
+            //    entity.Property(e => e.ReturnCondition).HasMaxLength(100);
+            //    entity.Property(e => e.LastModifiedBy).HasMaxLength(100);
+            //    //entity.HasMany(e => e.ConditionHistory)
+            //    //      .WithOne()
+            //    //      .HasForeignKey("EquipmentAssignmentId")
+            //    //      .OnDelete(DeleteBehavior.Cascade);
+            //    entity.OwnsMany(e => e.ConditionHistory, ch =>
+            //    {
+            //        ch.WithOwner().HasForeignKey("EquipmentAssignmentId");
+            //        // Define a key for the owned entity (either a generated key or composite key)
+            //        ch.HasKey("Id"); // assuming ConditionChange has an 'Id' property
+            //        // Additional configuration if needed (e.g., property lengths, table name, etc.)
+            //    });
+            //});
+
+            // ConditionChange configuration
+            modelBuilder.Entity<EquipmentAssignment.ConditionChange>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(e => e.PreviousCondition).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.NewCondition).IsRequired().HasMaxLength(100);
+            });
+            // Seed initial data
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -173,6 +205,12 @@ namespace ServiceProvider.Infrastructure.Data
             }
 
             return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+        {
+            var transaction = await Database.BeginTransactionAsync(cancellationToken);
+            return transaction;
         }
 
         private static object GetChanges(EntityEntry entry)

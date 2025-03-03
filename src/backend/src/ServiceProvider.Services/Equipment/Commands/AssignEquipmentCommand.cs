@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ServiceProvider.Core.Abstractions;
 using ServiceProvider.Core.Domain.Equipment;
+using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.Infrastructure.Data.Repositories;
 
 namespace ServiceProvider.Services.Equipment.Commands

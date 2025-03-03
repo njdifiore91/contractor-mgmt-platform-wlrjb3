@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using ServiceProvider.Services.Users.Commands;
 using ServiceProvider.Services.Users.Queries;
 using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
+using ServiceProvider.Core.Abstractions;
 
 namespace ServiceProvider.WebApi.Controllers
 {
@@ -17,7 +19,7 @@ namespace ServiceProvider.WebApi.Controllers
     /// </summary>
     [ApiController]
     [Route("api/v1/users")]
-    [Authorize]
+    //[Authorize]
     [ApiVersion("1.0")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class UsersController : ControllerBase

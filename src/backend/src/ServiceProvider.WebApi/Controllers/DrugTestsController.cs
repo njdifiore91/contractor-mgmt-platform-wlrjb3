@@ -8,6 +8,7 @@ using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.WebApi.Filters;
 using System;
 using System.Threading.Tasks;
+using ServiceProvider.Services.DrugTests.Queries;
 
 namespace ServiceProvider.WebApi.Controllers
 {
@@ -118,7 +119,7 @@ namespace ServiceProvider.WebApi.Controllers
 
             try
             {
-                var query = new GetDrugTestQuery { Id = id };
+                var query = new GetDrugTestQuery(id);
                 var drugTest = await _mediator.Send(query);
 
                 if (drugTest == null)

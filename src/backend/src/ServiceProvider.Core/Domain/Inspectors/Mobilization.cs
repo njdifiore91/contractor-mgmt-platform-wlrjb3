@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.Spatial; // v7.12.2
 using Microsoft.EntityFrameworkCore; // v6.0.0
 

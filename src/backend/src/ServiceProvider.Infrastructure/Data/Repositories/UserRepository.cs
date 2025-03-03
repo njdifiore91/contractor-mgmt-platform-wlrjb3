@@ -18,7 +18,7 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
     /// Implements secure and optimized data access operations for User entities with comprehensive 
     /// error handling, caching, and audit logging capabilities.
     /// </summary>
-    public sealed class UserRepository
+    public sealed class UserRepository : IUserRepository
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<UserRepository> _logger;
@@ -242,5 +242,57 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
 
             await Task.WhenAll(tasks);
         }
+
+        public async Task<SearchUsersResult> SearchAsync(string? searchTerm, bool? isActive, int pageNumber, int pageSize, string sortBy, bool sortDescending, CancellationToken cancellationToken)
+        {
+            Guard.Against.NegativeOrZero(pageNumber, nameof(pageNumber));
+            Guard.Against.NegativeOrZero(pageSize, nameof(pageSize));
+
+            try
+            {
+                var query = _context.Users.AsQueryable();
+
+                if (!string.IsNullOrWhiteSpace(searchTerm))
+                {
+                    query = query.Where(u => u.FirstName.Contains(searchTerm) || u.LastName.Contains(searchTerm) || u.Email.Contains(searchTerm));
+                }
+
+                if (isActive.HasValue)
+                {
+                    query = query.Where(u => u.IsActive == isActive.Value);
+                }
+
+                switch (sortBy.ToLower())
+                {
+                    case "firstname":
+                        query = sortDescending ? query.OrderByDescending(u => u.FirstName) : query.OrderBy(u => u.FirstName);
+                        break;
+                    case "lastname":
+                        query = sortDescending ? query.OrderByDescending(u => u.LastName) : query.OrderBy(u => u.LastName);
+                        break;
+                    case "email":
+                        query = sortDescending ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email);
+                        break;
+                    default:
+                        query = sortDescending ? query.OrderByDescending(u => u.Id) : query.OrderBy(u => u.Id);
+                        break;
+                }
+
+                var totalCount = await query.CountAsync(cancellationToken);
+                var users = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+
+                return new SearchUsersResult(users, totalCount, pageNumber, pageSize);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching users with term: {SearchTerm}", searchTerm);
+                throw;
+            }
+        }
+    }
+
+    public interface IUserRepository
+    {
+        Task<SearchUsersResult> SearchAsync(string? searchTerm, bool? isActive, int pageNumber, int pageSize, string sortBy, bool sortDescending, CancellationToken cancellationToken);
     }
 }

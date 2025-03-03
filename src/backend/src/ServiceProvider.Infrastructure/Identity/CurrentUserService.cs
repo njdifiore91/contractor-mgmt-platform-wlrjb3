@@ -32,12 +32,12 @@ namespace ServiceProvider.Infrastructure.Identity
         /// <summary>
         /// Gets the unique identifier of the currently authenticated user with validation.
         /// </summary>
-        public string UserId
+        public int? UserId
         {
             get
             {
                 var principal = _httpContextAccessor.HttpContext?.User;
-                return principal?.GetUserId();
+                return (principal?.GetUserId());
             }
         }
 

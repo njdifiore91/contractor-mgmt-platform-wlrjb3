@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Spatial; // v7.12.2
+using Microsoft.Spatial;
+using ServiceProvider.Core.Domain.Equipment; // v7.12.2
 using ServiceProvider.Core.Domain.Users;
 
 namespace ServiceProvider.Core.Domain.Inspectors
@@ -20,7 +21,7 @@ namespace ServiceProvider.Core.Domain.Inspectors
         public int UserId { get; private set; }
         public virtual User User { get; private set; }
         public InspectorStatus Status { get; private set; }
-        public GeographyPoint Location { get; private set; }
+        //public GeographyPoint Location { get; private set; }
         public string BadgeNumber { get; private set; }
         public virtual ICollection<Certification> Certifications { get; private set; }
         public virtual ICollection<DrugTest> DrugTests { get; private set; }
@@ -50,7 +51,7 @@ namespace ServiceProvider.Core.Domain.Inspectors
 
             UserId = userId;
             BadgeNumber = badgeNumber;
-            Location = location;
+            //Location = location;
             Status = InspectorStatus.Inactive;
             IsActive = true;
             CreatedAt = DateTime.UtcNow;
@@ -68,7 +69,7 @@ namespace ServiceProvider.Core.Domain.Inspectors
         public void UpdateLocation(GeographyPoint newLocation)
         {
             ValidateLocation(newLocation);
-            Location = newLocation;
+            //Location = newLocation;
             ModifiedAt = DateTime.UtcNow;
         }
 

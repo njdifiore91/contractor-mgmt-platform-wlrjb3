@@ -94,7 +94,7 @@ namespace ServiceProvider.Services.Inspectors.Commands
                 try
                 {
                     // Begin transaction for atomic operation
-                    await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+                    await using var transaction = await _context.BeginTransactionAsync(cancellationToken);
 
                     // Create new drug test with validated data
                     var drugTest = new DrugTest(

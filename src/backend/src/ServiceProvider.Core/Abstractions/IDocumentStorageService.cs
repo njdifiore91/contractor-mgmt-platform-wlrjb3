@@ -169,4 +169,53 @@ namespace ServiceProvider.Core.Abstractions
         public string CreatedBy { get; set; }
         public SecurityInformation SecuritySettings { get; set; }
     }
+
+    #region Missing classes
+
+    /// <summary>
+    /// Represents an audit trail entry for document actions.
+    /// </summary>
+
+    public class AuditTrail
+    {
+        public string Action { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string PerformedBy { get; set; }
+        public string Details { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the security settings for a document or folder.
+    /// </summary>
+
+    public class SecurityInformation
+    {
+        public string Permissions { get; set; }
+        public string Owner { get; set; }
+        public string[] SharedWith { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the version history of a document.
+    /// </summary>
+    public class VersionHistory
+    {
+        public string Version { get; set; }
+        public DateTime Timestamp { get; set; }
+        public string ModifiedBy { get; set; }
+        public string ChangeDescription { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the access information for a document.
+    /// </summary>
+
+    public class AccessInformation
+    {
+        public string AccessedBy { get; set; }
+        public DateTime AccessedOn { get; set; }
+        public string AccessType { get; set; }
+        public string AccessDetails { get; set; }
+    } 
+    #endregion
 }

@@ -250,7 +250,61 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
                 throw new ArgumentException($"Page size must be between 1 and {MAX_PAGE_SIZE}.", nameof(criteria));
             }
         }
+
+        public async Task<Customer> GetByCodeAsync(string code)
+        {
+            try
+            {
+                _logger.LogInformation("Retrieving customer with code: {CustomerCode}", code);
+
+                if (string.IsNullOrWhiteSpace(code))
+                {
+                    throw new ArgumentException("Customer code must not be null or empty.", nameof(code));
+                }
+
+                var customer = await _context.Customers
+                    .Include(c => c.Contacts.Where(contact => contact.IsActive))
+                    .Include(c => c.ContractIds)
+                    .FirstOrDefaultAsync(c => c.Code == code);
+
+                if (customer != null)
+                {
+                    await LogAuditEvent(customer.Id.ToString(), "Read", "Customer details retrieved by code");
+                }
+
+                return customer;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving customer with code: {CustomerCode}", code);
+                throw;
+            }
+        }
+
+        public async Task<bool> ValidateIndustryCodeAsync(string industry)
+        {
+            try
+            {
+                _logger.LogInformation("Validating industry code: {IndustryCode}", industry);
+
+                if (string.IsNullOrWhiteSpace(industry))
+                {
+                    throw new ArgumentException("Industry code must not be null or empty.", nameof(industry));
+                }
+
+                var isValid = await _context.Customers.AnyAsync(c => c.Industry == industry);
+
+                return isValid;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating industry code: {IndustryCode}", industry);
+                throw;
+            }
+        }
     }
+
+    
 
     public class CustomerSearchCriteria
     {

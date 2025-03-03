@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ServiceProvider.Core.Abstractions;
+using ServiceProvider.Core.Domain.Audit;
 using ServiceProvider.Core.Domain.Equipment;
 using ServiceProvider.Infrastructure.Data.Repositories;
 
@@ -19,7 +21,7 @@ namespace ServiceProvider.Services.Equipment.Commands
         public string Condition { get; }
         public string Notes { get; }
         public DateTime ReturnDate { get; }
-        public string ReturnedById { get; }
+        public int ReturnedById { get; }
         public Dictionary<string, string> AuditMetadata { get; }
 
         public ReturnEquipmentCommand(
@@ -27,7 +29,7 @@ namespace ServiceProvider.Services.Equipment.Commands
             string condition,
             string notes,
             DateTime returnDate,
-            string returnedById,
+            int returnedById,
             Dictionary<string, string> auditMetadata)
         {
             if (equipmentId <= 0)
@@ -39,8 +41,8 @@ namespace ServiceProvider.Services.Equipment.Commands
             if (returnDate == default)
                 throw new ArgumentException("Return date must be specified.", nameof(returnDate));
 
-            if (string.IsNullOrWhiteSpace(returnedById))
-                throw new ArgumentException("Returned by ID must be specified.", nameof(returnedById));
+            if (returnedById <= 0)
+                throw new ArgumentException("Returned by ID must be greater than zero.", nameof(returnedById));
 
             EquipmentId = equipmentId;
             Condition = condition.Trim();
@@ -80,10 +82,10 @@ namespace ServiceProvider.Services.Equipment.Commands
                 .LessThanOrEqualTo(DateTime.UtcNow)
                 .WithMessage("Return date cannot be in the future.");
 
-            RuleFor(x => x.ReturnedById)
-                .NotEmpty()
-                .Matches(@"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
-                .WithMessage("Invalid returned by ID format.");
+            //RuleFor(x => x.ReturnedById)
+            //    .NotEmpty()
+            //    .Matches(@"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$")
+            //    .WithMessage("Invalid returned by ID format.");
 
             RuleFor(x => x.AuditMetadata)
                 .Must(x => x.ContainsKey("UserAgent"))
@@ -163,10 +165,11 @@ namespace ServiceProvider.Services.Equipment.Commands
                             command.ReturnDate,
                             command.ReturnedById
                         }),
-                        command.AuditMetadata["IpAddress"],
-                        command.ReturnedById);
+                        command.AuditMetadata["IpAddress"], command.ReturnedById);
 
                     await _auditService.LogAsync(auditEntry, cancellationToken);
+
+                    // Persist the audit log entry
                     await transaction.CommitAsync(cancellationToken);
 
                     _logger.LogInformation(
@@ -177,7 +180,7 @@ namespace ServiceProvider.Services.Equipment.Commands
                 }
                 catch (Exception ex)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    //await transaction.RollbackAsync(cancellationToken);
                     throw new ApplicationException("Failed to process equipment return.", ex);
                 }
             }

@@ -3,7 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentValidation; // v11.0.0
 using MediatR; // v11.0.0
-using Microsoft.Extensions.Logging; // v6.0.0
+using Microsoft.Extensions.Logging;
+using ServiceProvider.Core.Abstractions; // v6.0.0
 using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.Infrastructure.Data.Repositories;
 
@@ -54,7 +55,7 @@ namespace ServiceProvider.Services.Inspectors.Queries
     /// </summary>
     public class GetInspectorByIdQueryHandler : IRequestHandler<GetInspectorByIdQuery, Inspector>
     {
-        private readonly InspectorRepository _inspectorRepository;
+        private readonly IInspectorRepository _inspectorRepository;
         private readonly ILogger<GetInspectorByIdQueryHandler> _logger;
         private readonly IValidator<GetInspectorByIdQuery> _validator;
 
@@ -66,7 +67,7 @@ namespace ServiceProvider.Services.Inspectors.Queries
         /// <param name="validator">Validator for query requests</param>
         /// <exception cref="ArgumentNullException">Thrown when any dependency is null</exception>
         public GetInspectorByIdQueryHandler(
-            InspectorRepository inspectorRepository,
+            IInspectorRepository inspectorRepository,
             ILogger<GetInspectorByIdQueryHandler> logger,
             IValidator<GetInspectorByIdQuery> validator)
         {
@@ -106,7 +107,7 @@ namespace ServiceProvider.Services.Inspectors.Queries
                 cancellationToken.ThrowIfCancellationRequested();
 
                 // Retrieve inspector with related data
-                var inspector = await _inspectorRepository.GetByIdAsync(request.Id);
+                var inspector = await _inspectorRepository.GetByIdAsync(request.Id, cancellationToken);
 
                 if (inspector == null)
                 {

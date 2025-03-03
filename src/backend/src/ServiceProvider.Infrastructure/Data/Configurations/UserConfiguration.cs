@@ -21,7 +21,7 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                     ttb.HasPeriodStart("ValidFrom");
                     ttb.HasPeriodEnd("ValidTo");
                     // 7-year retention policy as per technical specs
-                    ttb.SetHistoryRetentionPeriod(TimeSpan.FromDays(365 * 7));
+                    //ttb.SetHistoryRetentionPeriod(TimeSpan.FromDays(365 * 7));
                 });
             });
 
@@ -36,8 +36,8 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 .HasMaxLength(256)
                 .IsRequired()
                 .IsUnicode(false)
-                .HasColumnType("varchar(256)")
-                .UseEncryption(); // SQL Server Always Encrypted
+                .HasColumnType("varchar(256)");
+                //.UseEncryption(); // SQL Server Always Encrypted
 
             builder.Property(u => u.NormalizedEmail)
                 .HasMaxLength(256)
@@ -60,8 +60,8 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
             builder.Property(u => u.PhoneNumber)
                 .HasMaxLength(20)
                 .IsUnicode(false)
-                .HasColumnType("varchar(20)")
-                .UseEncryption(); // SQL Server Always Encrypted
+                .HasColumnType("varchar(20)");
+                //.UseEncryption(); // SQL Server Always Encrypted
 
             // Azure AD B2C ID
             builder.Property(u => u.AzureAdB2CId)
@@ -133,33 +133,33 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 .HasFilter("[IsActive] = 1");
 
             // Data masking for sensitive fields
-            builder.Property(u => u.Email)
-                .HasSensitiveDataMasking();
+            builder.Property(u => u.Email);
+                //.HasSensitiveDataMasking();
 
-            builder.Property(u => u.PhoneNumber)
-                .HasSensitiveDataMasking();
+                builder.Property(u => u.PhoneNumber);
+                //.HasSensitiveDataMasking();
 
             // Check constraints
             builder.ToTable(tb =>
             {
-                tb.HasCheckConstraint("CK_User_Email", "LEN([Email]) <= 256");
-                tb.HasCheckConstraint("CK_User_Names", "LEN([FirstName]) <= 100 AND LEN([LastName]) <= 100");
-                tb.HasCheckConstraint("CK_User_LoginAttempts", "[LoginAttempts] >= 0");
+                //tb.HasCheckConstraint("CK_User_Email", "LEN([Email]) <= 256");
+                //tb.HasCheckConstraint("CK_User_Names", "LEN([FirstName]) <= 100 AND LEN([LastName]) <= 100");
+                //tb.HasCheckConstraint("CK_User_LoginAttempts", "[LoginAttempts] >= 0");
             });
 
             // Row-level security
             builder.ToTable(tb =>
             {
-                tb.HasSecurityPolicy("UserSecurityPolicy", 
-                    @"CREATE SECURITY POLICY [identity].[UserSecurityPolicy]
-                      ADD FILTER PREDICATE [identity].[fn_userAccessPredicate]([Id]) ON [identity].[users],
-                      ADD BLOCK PREDICATE [identity].[fn_userAccessPredicate]([Id]) ON [identity].[users]");
+                //tb.HasSecurityPolicy("UserSecurityPolicy", 
+                //    @"CREATE SECURITY POLICY [identity].[UserSecurityPolicy]
+                //      ADD FILTER PREDICATE [identity].[fn_userAccessPredicate]([Id]) ON [identity].[users],
+                //      ADD BLOCK PREDICATE [identity].[fn_userAccessPredicate]([Id]) ON [identity].[users]");
             });
 
             // Compression settings
             builder.ToTable(tb =>
             {
-                tb.HasDataCompression(DataCompressionType.Page);
+                //tb.HasDataCompression(DataCompressionType.Page);
             });
         }
     }

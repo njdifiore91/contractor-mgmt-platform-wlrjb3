@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore; // v6.0.0
 using Microsoft.EntityFrameworkCore.Metadata.Builders; // v6.0.0
-using Microsoft.EntityFrameworkCore.SqlServer.NetTopologySuite; // v6.0.0
+//using Microsoft.EntityFrameworkCore.SqlServer.NetTopologySuite; // v6.0.0
 using ServiceProvider.Core.Domain.Inspectors;
 
 namespace ServiceProvider.Infrastructure.Data.Configurations
@@ -18,7 +18,7 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
             builder.ToTable("Inspectors", "dbo", tb =>
             {
                 tb.IsTemporal(); // Enable temporal tables for audit history
-                tb.HasComment("Stores inspector profiles with location tracking and status management");
+                //tb.HasComment("Stores inspector profiles with location tracking and status management");
             });
 
             // Primary key
@@ -32,8 +32,8 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 .WithOne()
                 .HasForeignKey<Inspector>(i => i.UserId)
                 .OnDelete(DeleteBehavior.Cascade)
-                .IsRequired()
-                .HasComment("Associated user account reference");
+                .IsRequired();
+                //.HasComment("Associated user account reference");
 
             // Badge number configuration
             builder.Property(i => i.BadgeNumber)
@@ -47,14 +47,14 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 .IsClustered(false);
 
             // Location configuration with spatial indexing
-            builder.Property(i => i.Location)
-                .HasColumnType("geography")
-                .IsRequired()
-                .HasComment("Geographic location for proximity searches");
+            //builder.Property(i => i.Location)
+            //    .HasColumnType("geography")
+            //    .IsRequired()
+            //    .HasComment("Geographic location for proximity searches");
 
-            builder.HasIndex(i => i.Location)
-                .HasDatabaseName("SPATIAL_Inspectors_Location")
-                .IsSpatial();
+            //builder.HasIndex(i => i.Location)
+            //    .HasDatabaseName("SPATIAL_Inspectors_Location");
+            //    .IsSpatial();
 
             // Status configuration
             builder.Property(i => i.Status)

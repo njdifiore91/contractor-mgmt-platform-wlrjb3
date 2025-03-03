@@ -6,7 +6,8 @@ using FluentValidation; // v11.0.0
 using MediatR; // v11.0.0
 using Microsoft.Extensions.Caching.Memory; // v6.0.0
 using Microsoft.Extensions.Logging;
-using Microsoft.Spatial; // v7.12.2
+using Microsoft.Spatial;
+using ServiceProvider.Core.Abstractions; // v7.12.2
 using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.Infrastructure.Data.Repositories;
 
@@ -222,9 +223,9 @@ namespace ServiceProvider.Services.Inspectors.Queries
         {
             return request.SortBy.ToLowerInvariant() switch
             {
-                "distance" => request.SortDescending
-                    ? inspectors.OrderByDescending(i => i.Location.Distance(request.Location)).ToList()
-                    : inspectors.OrderBy(i => i.Location.Distance(request.Location)).ToList(),
+                //"distance" => request.SortDescending
+                //    ? inspectors.OrderByDescending(i => i.Location.Distance(request.Location)).ToList()
+                //    : inspectors.OrderBy(i => i.Location.Distance(request.Location)).ToList(),
                 
                 "lastname" => request.SortDescending
                     ? inspectors.OrderByDescending(i => i.User.LastName).ToList()
@@ -253,8 +254,8 @@ namespace ServiceProvider.Services.Inspectors.Queries
                     FirstName = inspector.User.FirstName,
                     LastName = inspector.User.LastName,
                     Status = inspector.Status,
-                    Location = inspector.Location,
-                    DistanceInMiles = Math.Round(inspector.Location.Distance(searchLocation) / 1609.34, 2), // Convert meters to miles
+                    //Location = inspector.Location,
+                    //DistanceInMiles = Math.Round(inspector.Location.Distance(searchLocation) / 1609.34, 2), // Convert meters to miles
                     Certifications = inspector.Certifications.Select(c => c.Name).ToList(),
                     LastDrugTestDate = inspector.LastDrugTestDate,
                     IsActive = inspector.IsActive

@@ -85,7 +85,7 @@ namespace ServiceProvider.Common.Helpers
             {
                 // Use the earlier offset by default for ambiguous times
                 var offsets = timeZone.GetAmbiguousTimeOffsets(localTime);
-                return TimeZoneInfo.ConvertTimeToUtc(localTime, timeZone, offsets[0]);
+                return new DateTimeOffset(localTime, offsets[0]).UtcDateTime;
             }
 
             // Handle invalid time during DST transition

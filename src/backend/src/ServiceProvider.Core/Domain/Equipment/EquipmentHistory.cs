@@ -50,12 +50,12 @@ namespace ServiceProvider.Core.Domain.Equipment
         /// <summary>
         /// Timestamp of when the event occurred (UTC)
         /// </summary>
-        public DateTime EventDate { get; private set; }
+        public DateTime EventDate { get; set; }
 
         /// <summary>
         /// Type of event that occurred (see EventTypes constants)
         /// </summary>
-        public string EventType { get; private set; }
+        public string EventType { get; set; }
 
         /// <summary>
         /// Previous state or value before the change
@@ -70,7 +70,7 @@ namespace ServiceProvider.Core.Domain.Equipment
         /// <summary>
         /// Additional notes or comments about the event
         /// </summary>
-        public string Notes { get; private set; }
+        public string Notes { get; set; }
 
         /// <summary>
         /// User who initiated the change
