@@ -124,11 +124,11 @@ namespace ServiceProvider.WebApi
                         options.AddAutoCollectedMetricExtractor = true;
                     });
 
-                    // Add Azure AD B2C authentication
-                    services.AddMicrosoftIdentityWebApiAuthentication(
-                        context.Configuration,
-                        "AzureAdB2C",
-                        subscribeToJwtBearerMiddlewareDiagnosticsEvents: true);
+                    //// Add Azure AD B2C authentication
+                    //services.AddMicrosoftIdentityWebApiAuthentication(
+                    //    context.Configuration,
+                    //    "AzureAdB2C",
+                    //    subscribeToJwtBearerMiddlewareDiagnosticsEvents: true);
                 });
     }
 }

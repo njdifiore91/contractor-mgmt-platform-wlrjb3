@@ -1,3 +1,4 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -14,8 +15,21 @@ using ServiceProvider.Infrastructure.Cache;
 using ServiceProvider.Common.Constants;
 using StackExchange.Redis;
 using System;
+using System.Configuration;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Asp.Versioning;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc.Authorization;
+using AspNetCoreRateLimit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using ServiceProvider.Infrastructure.Data;
+using ServiceProvider.Infrastructure.Data.Repositories;
+using Microsoft.Identity.Web.TokenCacheProviders.InMemory;
+using Microsoft.IdentityModel.Tokens;
+using ServiceProvider.Services.Users;
+using ServiceProvider.Services.Users.Queries;
 
 namespace ServiceProvider.WebApi
 {
@@ -39,18 +53,45 @@ namespace ServiceProvider.WebApi
         public void ConfigureServices(IServiceCollection services)
         {
             // Configure Entity Framework with optimized connection pooling
-            services.AddDbContext<IApplicationDbContext>(options =>
-                options.UseSqlServer(_configuration.GetConnectionString("DefaultConnection"),
+            services.AddDbContext<IApplicationDbContext, ApplicationDbContext>(options =>
+                options.UseSqlServer(_configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is null."),
                     sqlOptions =>
                     {
                         sqlOptions.EnableRetryOnFailure(3);
                         sqlOptions.CommandTimeout(30);
                         sqlOptions.MigrationsAssembly("ServiceProvider.Infrastructure");
+                        sqlOptions.UseNetTopologySuite();
                     }));
 
-            // Configure Azure AD B2C Authentication
-            services.AddMicrosoftIdentityWebApiAuthentication(_configuration, "AzureAdB2C")
-                .EnableTokenAcquisition();
+            services.AddScoped<IInspectorRepository, InspectorRepository>();
+            services.AddScoped<ICustomerRepository, CustomerRepository>();
+            services.AddScoped<IDrugTestRepository, DrugTestRepository>();
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IEquipmentRepository, EquipmentRepository>();
+
+            services.AddScoped<UserRepository>();
+
+            services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ServiceProvider.Infrastructure.Dummy).Assembly));
+            services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ServiceProvider.Services.Dummy).Assembly));
+            services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Dummy).Assembly));
+
+            services.AddAutoMapper(typeof(ServiceProvider.Infrastructure.Dummy));
+            services.AddAutoMapper(typeof(ServiceProvider.Services.Dummy));
+            services.AddAutoMapper(typeof(Dummy));
+
+            // Create the AutoMapper configuration and register your profile
+            var mappingConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<UserProfile>();
+            });
+
+            // Create the mapper instance
+            IMapper mapper = mappingConfig.CreateMapper();
+
+            // Register the mapper as a singleton
+            services.AddSingleton(mapper);
+
+            services.AddResponseCompression();
 
             // Configure Redis Cache
             services.AddStackExchangeRedisCache(options =>
@@ -74,17 +115,19 @@ namespace ServiceProvider.WebApi
                 };
             });
 
+            services.Configure<IpRateLimitOptions>(_configuration.GetSection("IpRateLimiting"));
+            services.Configure<IpRateLimitPolicies>(_configuration.GetSection("IpRateLimitPolicies"));
+            services.AddInMemoryRateLimiting();  // Registers the in-memory processing strategy
+
+            services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+            services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
             // Configure CORS with strict policies
             services.AddCors(options =>
             {
                 options.AddPolicy("DefaultPolicy", builder =>
                 {
-                    builder.WithOrigins(_configuration.GetSection("AllowedOrigins").Get<string[]>())
-                           .AllowAnyMethod()
-                           .AllowAnyHeader()
-                           .AllowCredentials()
-                           .SetIsOriginAllowedToAllowWildcardSubdomains()
-                           .WithExposedHeaders("X-Pagination");
+                    builder.AllowAnyOrigin();
                 });
             });
 
@@ -105,19 +148,6 @@ namespace ServiceProvider.WebApi
                     Version = "v1",
                     Description = "Enterprise API for managing service providers and equipment"
                 });
-
-                options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
-                {
-                    Type = SecuritySchemeType.OAuth2,
-                    Flows = new OpenApiOAuthFlows
-                    {
-                        Implicit = new OpenApiOAuthFlow
-                        {
-                            AuthorizationUrl = new Uri($"{_configuration["AzureAdB2C:Instance"]}/oauth2/authorize"),
-                            TokenUrl = new Uri($"{_configuration["AzureAdB2C:Instance"]}/oauth2/token")
-                        }
-                    }
-                });
             });
 
             // Configure Application Insights
@@ -129,13 +159,9 @@ namespace ServiceProvider.WebApi
 
             // Configure Health Checks
             services.AddHealthChecks()
-                   .AddSqlServer(_configuration.GetConnectionString("DefaultConnection"))
-                   .AddRedis(_configuration.GetConnectionString("Redis"))
-                   .AddAzureKeyVault();
+                .AddSqlServer(_configuration.GetConnectionString("DefaultConnection"))
+                .AddRedis(_configuration.GetConnectionString("Redis"));
 
-            // Register Application Services
-            services.AddScoped<AzureAdB2CService>();
-            services.AddScoped<RedisCacheService>();
             services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             // Configure Controllers with API Behavior
@@ -143,14 +169,30 @@ namespace ServiceProvider.WebApi
             {
                 options.Filters.Add(new ProducesAttribute("application/json"));
                 options.Filters.Add(new ConsumesAttribute("application/json"));
-                options.Filters.Add(new AuthorizeFilter());
+                //options.Filters.Add(new AuthorizeFilter());
             })
             .AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-                options.JsonSerializerOptions.DefaultIgnoreCondition = 
+                options.JsonSerializerOptions.DefaultIgnoreCondition =
                     System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
             });
+
+            var jwtSettings = _configuration.GetSection("Jwt");
+            var secretKey = Encoding.UTF8.GetBytes(jwtSettings["Secret"]);
+
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = false, // Set to true if using an issuer
+                        ValidateAudience = false, // Set to true if using an audience
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(secretKey)
+                    };
+                });
         }
 
         /// <summary>
@@ -158,13 +200,15 @@ namespace ServiceProvider.WebApi
         /// </summary>
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            app.UseResponseCaching(); // Add the response caching middleware
+
+            app.UseMiddleware<IpRateLimitMiddleware>();
+
             // Configure Security Headers
             app.UseSecurityHeaders(policies =>
                 policies
                     .AddDefaultSecurityHeaders()
-                    .AddStrictTransportSecurityMaxAgeIncludeSubDomains()
-                    .AddXssProtection(options => options.EnabledWithBlockMode())
-                    .AddContentSecurityPolicy(options => options.Default.AllowHttps()));
+                    .AddStrictTransportSecurityMaxAgeIncludeSubDomains());
 
             if (env.IsDevelopment())
             {
@@ -190,12 +234,13 @@ namespace ServiceProvider.WebApi
             app.UseIpRateLimiting();
             app.UseCors("DefaultPolicy");
 
+            // Configure Routing and Endpoints
+            app.UseRouting();
+
             // Configure Authentication Pipeline
             app.UseAuthentication();
             app.UseAuthorization();
 
-            // Configure Routing and Endpoints
-            app.UseRouting();
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
@@ -209,18 +254,19 @@ namespace ServiceProvider.WebApi
                 });
             });
 
-            // Configure Request Logging
-            app.UseRequestLogging(options =>
-            {
-                options.LogLevel = LogLevel.Information;
-                options.ExcludePaths = new[] { "/health", "/metrics" };
-            });
-
             // Initialize Database
             using (var scope = app.ApplicationServices.CreateScope())
             {
-                var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
-                context.Database.Migrate();
+                try
+                {
+                    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    var dbContext = context as DbContext;
+                    dbContext?.Database.Migrate();
+                }
+                catch (Exception ex)
+                {
+
+                }
             }
         }
     }

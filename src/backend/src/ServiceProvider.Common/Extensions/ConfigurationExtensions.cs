@@ -1,4 +1,5 @@
 using System;
+using System.Configuration;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -62,7 +63,7 @@ namespace ServiceProvider.Common.Extensions
 
             try
             {
-                var value = configuration.GetValue<T>(key);
+                var value = configuration.GetRequiredValue<T>(key);
 
                 if (value == null || (typeof(T) == typeof(string) && string.IsNullOrWhiteSpace(value as string)))
                 {
@@ -99,8 +100,8 @@ namespace ServiceProvider.Common.Extensions
 
             var config = new AzureAdConfiguration
             {
-                Instance = azureAdSection.GetValue<string>("Instance") ?? ConfigurationConstants.AZURE_AD_INSTANCE,
-                Domain = azureAdSection.GetValue<string>("Domain") ?? ConfigurationConstants.AZURE_AD_DOMAIN,
+                Instance = azureAdSection.GetRequiredValue<string>("Instance") ?? ConfigurationConstants.AZURE_AD_INSTANCE,
+                Domain = azureAdSection.GetRequiredValue<string>("Domain") ?? ConfigurationConstants.AZURE_AD_DOMAIN,
                 TenantId = azureAdSection.GetRequiredValue<string>(ConfigurationConstants.AZURE_AD_TENANT_ID_KEY),
                 ClientId = azureAdSection.GetRequiredValue<string>(ConfigurationConstants.AZURE_AD_CLIENT_ID_KEY),
                 ClientSecret = azureAdSection.GetRequiredValue<string>(ConfigurationConstants.AZURE_AD_CLIENT_SECRET_KEY),

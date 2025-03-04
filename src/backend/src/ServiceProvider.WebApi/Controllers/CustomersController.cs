@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using ServiceProvider.Services.Customers.Commands;
 using ServiceProvider.Services.Customers.Queries;
 using ServiceProvider.WebApi.Filters;
@@ -17,7 +18,7 @@ namespace ServiceProvider.WebApi.Controllers
     [ApiController]
     [Route("api/v1/[controller]")]
     [Authorize]
-    [ApiExceptionFilter]
+    [ServiceFilter(typeof(ApiExceptionFilter))]
     [ResponseCache(Duration = 60, VaryByQueryKeys = new[] { "*" })]
     public class CustomersController : ControllerBase
     {
@@ -65,9 +66,9 @@ namespace ServiceProvider.WebApi.Controllers
 
             var result = await _mediator.Send(query);
 
-            // Add cache headers
-            Response.Headers.Add("X-Total-Count", result.TotalCount.ToString());
-            Response.Headers.Add("X-Page-Count", ((int)Math.Ceiling(result.TotalCount / (double)pageSize)).ToString());
+            //// Add cache headers
+            //Response.Headers.Add("X-Total-Count", result.TotalCount.ToString());
+            //Response.Headers.Add("X-Page-Count", ((int)Math.Ceiling(result.TotalCount / (double)pageSize)).ToString());
 
             return Ok(result);
         }
@@ -162,6 +163,11 @@ namespace ServiceProvider.WebApi.Controllers
                 return Conflict("The customer has been modified by another user");
             }
         }
+    }
+
+    public class CustomerDto
+    {
+
     }
 
     /// <summary>

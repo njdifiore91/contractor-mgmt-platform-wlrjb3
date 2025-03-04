@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using ServiceProvider.Services.Users.Commands;
 using ServiceProvider.Services.Users.Queries;
 using System.ComponentModel.DataAnnotations;
+using Asp.Versioning;
+using ServiceProvider.Core.Abstractions;
 
 namespace ServiceProvider.WebApi.Controllers
 {

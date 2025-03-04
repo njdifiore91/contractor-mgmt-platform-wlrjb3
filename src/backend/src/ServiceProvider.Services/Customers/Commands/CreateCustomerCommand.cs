@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using ServiceProvider.Core.Abstractions;
 using ServiceProvider.Core.Domain.Customers;
 using ServiceProvider.Infrastructure.Data.Repositories;
 using ServiceProvider.Core.Domain.Audit;

@@ -80,7 +80,7 @@ namespace ServiceProvider.Services.Equipment.Queries
 
                 var query = _context.Equipment
                     .AsNoTracking()
-                    .Include(e => e.Assignments.Where(a => !a.ReturnDate.HasValue))
+                    .Include(e => e.Assignments.Where(a => !a.ReturnedDate.HasValue))
                     .AsQueryable();
 
                 // Apply filters
@@ -119,12 +119,12 @@ namespace ServiceProvider.Services.Equipment.Queries
                         PurchaseDate = e.PurchaseDate,
                         LastMaintenanceDate = e.LastMaintenanceDate,
                         CurrentAssignment = e.Assignments
-                            .Where(a => !a.ReturnDate.HasValue)
+                            .Where(a => !a.ReturnedDate.HasValue)
                             .Select(a => new EquipmentAssignmentDto
                             {
                                 InspectorId = a.InspectorId,
-                                AssignmentDate = a.AssignmentDate,
-                                ConditionOnAssignment = a.ConditionOnAssignment
+                                AssignmentDate = a.AssignedDate,
+                                ConditionOnAssignment = a.Condition
                             })
                             .FirstOrDefault()
                     })

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ServiceProvider.Core.Domain.Customers;
@@ -53,8 +54,8 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
             builder.Property(c => c.Address)
                 .HasMaxLength(500)
                 .HasColumnType("nvarchar(500)")
-                .HasComment("Customer street address (encrypted)")
-                .IsEncrypted();
+                .HasComment("Customer street address (encrypted)");
+                //.IsEncrypted();
 
             builder.Property(c => c.City)
                 .HasMaxLength(100)
@@ -100,8 +101,8 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
             builder.Property(c => c.ContractIds)
                 .HasColumnType("nvarchar(max)")
                 .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<ICollection<int>>(v, null))
+                    v => System.Text.Json.JsonSerializer.Serialize(v, new JsonSerializerOptions()),
+                    v => System.Text.Json.JsonSerializer.Deserialize<ICollection<int>>(v, new JsonSerializerOptions()))
                 .HasComment("JSON array of associated contract IDs");
 
             // Indexes for performance optimization
@@ -121,7 +122,7 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 .IsClustered(false);
 
             // Concurrency token
-            builder.UseXminAsConcurrencyToken();
+           // builder.UseXminAsConcurrencyToken();
 
             // Temporal table configuration for audit history
             builder.ToTable(tb => tb.IsTemporal(ttb =>
@@ -131,19 +132,19 @@ namespace ServiceProvider.Infrastructure.Data.Configurations
                 ttb.HasPeriodEnd("ValidTo");
             }));
 
-            // Row-level security policy
-            builder.HasSecurityPolicy("CustomerAccessPolicy");
+            //// Row-level security policy
+            //builder.HasSecurityPolicy("CustomerAccessPolicy");
 
-            // Data compression
-            builder.HasDataCompression(DataCompressionType.Page);
+            //// Data compression
+            //builder.HasDataCompression(DataCompressionType.Page);
 
             // Check constraints
             builder.HasCheckConstraint("CK_Customers_Code_Format", 
                 "Code LIKE '[A-Z][A-Z][A-Z]-[0-9][0-9][0-9]'");
 
             // Triggers
-            builder.HasTrigger("TR_Customers_UpdateModifiedAt")
-                .HasDatabaseName("TR_Customers_UpdateModifiedAt");
+            //builder.HasTrigger("TR_Customers_UpdateModifiedAt")
+            //    .HasDatabaseName("TR_Customers_UpdateModifiedAt");
 
             // Audit columns
             builder.Property<string>("CreatedBy")

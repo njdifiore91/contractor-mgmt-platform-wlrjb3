@@ -11,6 +11,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ServiceProvider.Infrastructure.Data
 {
@@ -57,6 +58,7 @@ namespace ServiceProvider.Infrastructure.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.AuditTrail).HasColumnType("nvarchar(max)");
+                entity.Property(e => e.PhoneNumber).IsRequired(false);
             });
 
             // Role configuration
@@ -136,6 +138,33 @@ namespace ServiceProvider.Infrastructure.Data
             modelBuilder.Entity<Customer>().HasQueryFilter(e => e.IsActive);
             modelBuilder.Entity<Inspector>().HasQueryFilter(e => e.IsActive);
             modelBuilder.Entity<Equipment>().HasQueryFilter(e => e.IsActive);
+
+            // ConditionChange configuration
+            modelBuilder.Entity<EquipmentAssignment.ConditionChange>(entity =>
+            {
+                entity.HasNoKey();
+                entity.Property(e => e.PreviousCondition).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.NewCondition).IsRequired().HasMaxLength(100);
+            });
+
+            // Seed initial data
+            modelBuilder.Entity<Role>().HasData(
+                new Role(1, "Admin", "Admin Role"),
+                new Role(2, "Operations", "Operations Role"),
+                new Role(3, "Inspector", "Inspector Role")
+            );
+
+            modelBuilder.Entity<User>().HasData(
+                new User(1, "admin@serviceprovider.com", "Admin", "User", "cd789254-a35b-41b9-a15d-fb81aec88fbb", "Test123!", "+1123456789"),
+                new User(2, "operations@serviceprovider.com", "Operations", "User", "06c98198-e2e3-448f-9c5a-50b25bb0ebb9", "Test123!", "+1123456789"),
+                new User(3, "inspector@serviceprovider.com", "Inspector", "User", "33f86b34-b819-417f-8008-b797fec435d0", "Test123!", "+1123456789")
+                );
+
+            modelBuilder.Entity<UserRole>().HasData(
+                new UserRole(1,1, 1),
+                new UserRole(2, 2, 2),
+                new UserRole(3,3, 3)
+            );
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -173,6 +202,12 @@ namespace ServiceProvider.Infrastructure.Data
             }
 
             return await base.SaveChangesAsync(cancellationToken);
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+        {
+            var transaction = await Database.BeginTransactionAsync(cancellationToken);
+            return transaction;
         }
 
         private static object GetChanges(EntityEntry entry)

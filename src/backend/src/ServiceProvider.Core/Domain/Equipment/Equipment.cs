@@ -107,15 +107,15 @@ namespace ServiceProvider.Core.Domain.Equipment
             Assignments = new List<EquipmentAssignment>();
             History = new List<EquipmentHistory>();
 
-            // Record initial history entry
-            History.Add(new EquipmentHistory
-            {
-                EventDate = PurchaseDate,
-                EventType = "Created",
-                Description = $"Equipment added to inventory: {Type} - {Model}",
-                PreviousState = null,
-                NewState = "New"
-            });
+            //// Record initial history entry
+            //History.Add(new EquipmentHistory
+            //{
+            //    EventDate = PurchaseDate,
+            //    EventType = "Created",
+            //    Description = $"Equipment added to inventory: {Type} - {Model}",
+            //    PreviousState = null,
+            //    NewState = "New"
+            //});
         }
 
         #endregion
@@ -141,25 +141,19 @@ namespace ServiceProvider.Core.Domain.Equipment
             if (string.IsNullOrWhiteSpace(condition))
                 throw new ArgumentException("Condition must be specified", nameof(condition));
 
-            var assignment = new EquipmentAssignment
-            {
-                EquipmentId = Id,
-                InspectorId = inspectorId,
-                AssignmentDate = DateTime.UtcNow,
-                ConditionOnAssignment = condition
-            };
+            var assignment = new EquipmentAssignment(Id, inspectorId, condition);
 
             Assignments.Add(assignment);
             IsAvailable = false;
 
-            History.Add(new EquipmentHistory
-            {
-                EventDate = assignment.AssignmentDate,
-                EventType = "Assigned",
-                Description = $"Assigned to Inspector ID: {inspectorId}",
-                PreviousState = "Available",
-                NewState = "Assigned"
-            });
+            History.Add(new EquipmentHistory(Id, "Assigned", "Available", "Assigned", "System", "Admin"));
+            //{
+            //    EventDate = assignment.AssignmentDate,
+            //    EventType = "Assigned",
+            //    Description = $"Assigned to Inspector ID: {inspectorId}",
+            //    PreviousState = "Available",
+            //    NewState = "Assigned"
+            //});
 
             return assignment;
         }
@@ -180,21 +174,24 @@ namespace ServiceProvider.Core.Domain.Equipment
             if (string.IsNullOrWhiteSpace(condition))
                 throw new ArgumentException("Return condition must be specified", nameof(condition));
 
-            activeAssignment.ReturnDate = DateTime.UtcNow;
-            activeAssignment.ConditionOnReturn = condition;
+            activeAssignment.ReturnedDate = DateTime.UtcNow;
+            activeAssignment.ReturnCondition = condition;
             activeAssignment.Notes = notes;
 
             Condition = condition;
             IsAvailable = true;
 
-            History.Add(new EquipmentHistory
+            History.Add(new EquipmentHistory(
+                Id,
+                "Returned",
+                "Assigned",
+                "Available",
+                "System",
+                "Admin")
             {
-                EventDate = activeAssignment.ReturnDate.Value,
-                EventType = "Returned",
-                Description = $"Returned from Inspector ID: {activeAssignment.InspectorId}",
-                PreviousState = "Assigned",
-                NewState = "Available",
-                Notes = notes
+                EventDate = activeAssignment.ReturnedDate.Value,
+                Notes = notes,
+                //Description = $"Returned from Inspector ID: {activeAssignment.InspectorId}"
             });
         }
 
@@ -211,14 +208,27 @@ namespace ServiceProvider.Core.Domain.Equipment
             var previousCondition = Condition;
             Condition = newCondition;
 
-            History.Add(new EquipmentHistory
+            History.Add(new EquipmentHistory(
+            Id,
+            "ConditionUpdate",
+            previousCondition,
+            newCondition,
+            "System",
+            "Admin")
             {
                 EventDate = DateTime.UtcNow,
-                EventType = "ConditionUpdate",
-                Description = "Condition updated",
-                PreviousState = previousCondition,
-                NewState = newCondition
+                Notes = "Condition updated",
+                //Description = $"Returned from Inspector ID: {activeAssignment.InspectorId}"
             });
+
+            //History.Add(new EquipmentHistory
+            //{
+            //    EventDate = DateTime.UtcNow,
+            //    EventType = "ConditionUpdate",
+            //    Description = "Condition updated",
+            //    PreviousState = previousCondition,
+            //    NewState = newCondition
+            //});
 
             // Update maintenance date if condition improved
             if (IsConditionImproved(previousCondition, newCondition))
@@ -239,13 +249,15 @@ namespace ServiceProvider.Core.Domain.Equipment
 
             LastMaintenanceDate = DateTime.UtcNow;
 
-            History.Add(new EquipmentHistory
+            History.Add(new EquipmentHistory(
+                Id,
+                "Maintenance",
+                Condition,
+                Condition,
+                "System",
+                "Admin")
             {
                 EventDate = LastMaintenanceDate.Value,
-                EventType = "Maintenance",
-                Description = description,
-                PreviousState = Condition,
-                NewState = Condition
             });
 
             Notes = string.IsNullOrEmpty(Notes) 
@@ -259,7 +271,7 @@ namespace ServiceProvider.Core.Domain.Equipment
 
         private EquipmentAssignment GetActiveAssignment()
         {
-            return Assignments.FirstOrDefault(a => !a.ReturnDate.HasValue);
+            return Assignments.FirstOrDefault(a => !a.ReturnedDate.HasValue);
         }
 
         private bool IsConditionImproved(string previousCondition, string newCondition)

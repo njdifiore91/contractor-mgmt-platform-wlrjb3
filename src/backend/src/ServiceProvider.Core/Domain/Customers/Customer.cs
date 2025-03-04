@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.RegularExpressions;
 
 namespace ServiceProvider.Core.Domain.Customers
@@ -92,12 +93,15 @@ namespace ServiceProvider.Core.Domain.Customers
         /// <summary>
         /// Gets the collection of contacts associated with this customer.
         /// </summary>
-        public ICollection<Contact> Contacts { get; private set; }
+        public HashSet<Contact> Contacts { get; private set; }
 
         /// <summary>
         /// Gets the collection of contract IDs associated with this customer.
         /// </summary>
+        [NotMapped]
         public ICollection<int> ContractIds { get; private set; }
+
+        public byte[] Version { get; set; }
 
         #endregion
 
@@ -247,10 +251,10 @@ namespace ServiceProvider.Core.Domain.Customers
         /// <exception cref="InvalidOperationException">Thrown when the customer cannot be activated.</exception>
         public void Activate()
         {
-            if (!Contacts.Exists(c => c.IsActive && c.IsPrimary))
-            {
-                throw new InvalidOperationException("Customer must have an active primary contact.");
-            }
+            //if (!Contacts.Exists(c => c.IsActive && c.IsPrimary))
+            //{
+            //    throw new InvalidOperationException("Customer must have an active primary contact.");
+            //}
 
             IsActive = true;
             ModifiedAt = DateTime.UtcNow;

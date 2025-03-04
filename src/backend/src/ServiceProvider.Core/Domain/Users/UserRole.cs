@@ -35,6 +35,8 @@ namespace ServiceProvider.Core.Domain.Users
         /// </summary>
         public DateTime? RevokedAt { get; private set; }
 
+        public Role Role { get; set; }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="UserRole"/> class.
         /// </summary>
@@ -53,6 +55,11 @@ namespace ServiceProvider.Core.Domain.Users
             RoleId = roleId;
             AssignedAt = DateTime.UtcNow;
             RevokedAt = null;
+        }
+
+        public UserRole(int id, int userId, int roleId) : this(userId, roleId)
+        {
+            Id = id;
         }
 
         /// <summary>

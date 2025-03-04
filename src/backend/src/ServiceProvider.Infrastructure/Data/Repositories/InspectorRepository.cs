@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace ServiceProvider.Infrastructure.Data.Repositories
 {
@@ -13,7 +14,7 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
     /// Repository implementation for managing Inspector entities with comprehensive validation,
     /// security measures, and optimized geographic search capabilities.
     /// </summary>
-    public class InspectorRepository
+    public class InspectorRepository : IInspectorRepository
     {
         private readonly IApplicationDbContext _context;
         private const double EARTH_RADIUS_MILES = 3959.0;
@@ -28,8 +29,9 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
         /// Retrieves an inspector by ID with eager loading of related entities.
         /// </summary>
         /// <param name="id">The inspector ID</param>
+        /// <param name="cancellationToken"></param>
         /// <returns>Inspector entity with related data if found, null otherwise</returns>
-        public async Task<Inspector> GetByIdAsync(int id)
+        public async Task<Inspector> GetByIdAsync(int id, CancellationToken cancellationToken)
         {
             if (id <= 0)
                 throw new ArgumentException("Inspector ID must be greater than 0.", nameof(id));
@@ -39,7 +41,7 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
                 .Include(i => i.Certifications)
                 .Include(i => i.DrugTests)
                 .Include(i => i.EquipmentAssignments)
-                .FirstOrDefaultAsync(i => i.Id == id && i.IsActive);
+                .FirstOrDefaultAsync(i => i.Id == id && i.IsActive, cancellationToken);
         }
 
         /// <summary>
@@ -64,9 +66,10 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
                 .Include(i => i.Certifications)
                 .Include(i => i.DrugTests.OrderByDescending(dt => dt.TestDate).Take(1))
                 .Where(i => i.IsActive &&
-                           i.Status == InspectorStatus.Available &&
-                           i.Location.Distance(location) <= radiusInMiles * EARTH_RADIUS_MILES)
-                .OrderBy(i => i.Location.Distance(location))
+                           i.Status == InspectorStatus.Available
+                           //&&i.Location.Distance(location) <= radiusInMiles * EARTH_RADIUS_MILES
+                           )
+                //.OrderBy(i => i.Location.Distance(location))
                 .ToListAsync();
         }
 
@@ -106,7 +109,7 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
 
             try
             {
-                var entry = _context.Entry(inspector);
+                EntityEntry<Inspector> entry = _context.Inspectors.Attach(inspector);
                 entry.State = EntityState.Modified;
 
                 // Optimistic concurrency check
@@ -131,14 +134,14 @@ namespace ServiceProvider.Infrastructure.Data.Repositories
             if (string.IsNullOrWhiteSpace(inspector.BadgeNumber))
                 throw new ArgumentException("Badge number is required.", nameof(inspector));
 
-            if (inspector.Location == null)
-                throw new ArgumentException("Location is required.", nameof(inspector));
+            //if (inspector.Location == null)
+            //    throw new ArgumentException("Location is required.", nameof(inspector));
 
-            if (inspector.Location.Latitude < -90 || inspector.Location.Latitude > 90)
-                throw new ArgumentException("Invalid latitude value.", nameof(inspector));
+            //if (inspector.Location.Latitude < -90 || inspector.Location.Latitude > 90)
+            //    throw new ArgumentException("Invalid latitude value.", nameof(inspector));
 
-            if (inspector.Location.Longitude < -180 || inspector.Location.Longitude > 180)
-                throw new ArgumentException("Invalid longitude value.", nameof(inspector));
+            //if (inspector.Location.Longitude < -180 || inspector.Location.Longitude > 180)
+            //    throw new ArgumentException("Invalid longitude value.", nameof(inspector));
 
             if (inspector.UserId <= 0)
                 throw new ArgumentException("Invalid user ID.", nameof(inspector));

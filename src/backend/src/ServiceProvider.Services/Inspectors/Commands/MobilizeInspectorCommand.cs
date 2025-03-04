@@ -125,7 +125,7 @@ namespace ServiceProvider.Services.Inspectors.Commands
         {
             _logger.LogInformation("Starting inspector mobilization process for Inspector ID: {InspectorId}", request.InspectorId);
 
-            using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+            using var transaction = await _context.BeginTransactionAsync(cancellationToken);
             try
             {
                 var inspector = await _context.Inspectors

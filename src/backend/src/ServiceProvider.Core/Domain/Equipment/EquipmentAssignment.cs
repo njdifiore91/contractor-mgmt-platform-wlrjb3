@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.RegularExpressions;
 
 namespace ServiceProvider.Core.Domain.Equipment
@@ -40,22 +41,22 @@ namespace ServiceProvider.Core.Domain.Equipment
         /// <summary>
         /// Date when the equipment was returned, if applicable
         /// </summary>
-        public DateTime? ReturnedDate { get; private set; }
+        public DateTime? ReturnedDate { get; set; }
 
         /// <summary>
         /// Documented condition of equipment at time of assignment
         /// </summary>
-        public string AssignmentCondition { get; private set; }
+        public string Condition { get; private set; }
 
         /// <summary>
         /// Documented condition of equipment upon return
         /// </summary>
-        public string ReturnCondition { get; private set; }
+        public string ReturnCondition { get; set; }
 
         /// <summary>
         /// Additional notes and comments about the assignment
         /// </summary>
-        public string Notes { get; private set; }
+        public string Notes { get; set; }
 
         /// <summary>
         /// Indicates if this is the current active assignment
@@ -80,6 +81,7 @@ namespace ServiceProvider.Core.Domain.Equipment
         /// <summary>
         /// Historical record of condition changes during the assignment
         /// </summary>
+        [NotMapped]
         public List<ConditionChange> ConditionHistory { get; private set; }
 
         #endregion
@@ -99,7 +101,7 @@ namespace ServiceProvider.Core.Domain.Equipment
 
             EquipmentId = equipmentId;
             InspectorId = inspectorId;
-            AssignmentCondition = SanitizeCondition(condition);
+            Condition = SanitizeCondition(condition);
             AssignedDate = DateTime.UtcNow;
             IsActive = true;
             CreatedAt = DateTime.UtcNow;
@@ -110,7 +112,7 @@ namespace ServiceProvider.Core.Domain.Equipment
                 {
                     ChangeDate = AssignedDate,
                     PreviousCondition = null,
-                    NewCondition = AssignmentCondition,
+                    NewCondition = Condition,
                     ChangeType = "Initial Assignment"
                 }
             };
@@ -148,7 +150,7 @@ namespace ServiceProvider.Core.Domain.Equipment
             ConditionHistory.Add(new ConditionChange
             {
                 ChangeDate = ReturnedDate.Value,
-                PreviousCondition = AssignmentCondition,
+                PreviousCondition = Condition,
                 NewCondition = ReturnCondition,
                 ChangeType = "Return",
                 Notes = sanitizedNotes
@@ -258,6 +260,7 @@ namespace ServiceProvider.Core.Domain.Equipment
         /// </summary>
         public class ConditionChange
         {
+            public int EquipmentAssignmentId { get; set; }
             public DateTime ChangeDate { get; set; }
             public string PreviousCondition { get; set; }
             public string NewCondition { get; set; }

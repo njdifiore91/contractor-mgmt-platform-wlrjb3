@@ -9,6 +9,7 @@ using ServiceProvider.Core.Abstractions;
 using ServiceProvider.Core.Domain.Inspectors;
 using ServiceProvider.Core.Domain.Audit;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 
 namespace ServiceProvider.Services.Inspectors.Commands
 {
@@ -109,7 +110,7 @@ namespace ServiceProvider.Services.Inspectors.Commands
                     command.Location);
 
                 // Add to context and save changes within transaction
-                await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+                await using var transaction = await _context.BeginTransactionAsync(cancellationToken);
                 try
                 {
                     _context.Inspectors.Add(inspector);
@@ -124,11 +125,11 @@ namespace ServiceProvider.Services.Inspectors.Commands
                         {
                             UserId = inspector.UserId,
                             BadgeNumber = inspector.BadgeNumber,
-                            Location = new
-                            {
-                                Latitude = inspector.Location.Latitude,
-                                Longitude = inspector.Location.Longitude
-                            },
+                            //Location = new
+                            //{
+                            //    Latitude = inspector.Location.Latitude,
+                            //    Longitude = inspector.Location.Longitude
+                            //},
                             Status = inspector.Status
                         }),
                         ipAddress: "::1", // Should be injected from HTTP context in real implementation

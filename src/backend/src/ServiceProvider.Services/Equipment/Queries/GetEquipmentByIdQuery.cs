@@ -15,7 +15,7 @@ namespace ServiceProvider.Services.Equipment.Queries
     /// <summary>
     /// CQRS query request for retrieving equipment details by ID with enhanced validation and security checks.
     /// </summary>
-    public class GetEquipmentByIdQuery : IRequest<Equipment>
+    public class GetEquipmentByIdQuery : IRequest<Core.Domain.Equipment.Equipment>
     {
         /// <summary>
         /// Gets the unique identifier of the equipment to retrieve.
@@ -39,7 +39,7 @@ namespace ServiceProvider.Services.Equipment.Queries
     /// Handler for processing equipment retrieval by ID queries with optimized performance and security measures.
     /// Implements caching, performance tracking, and comprehensive error handling.
     /// </summary>
-    public class GetEquipmentByIdQueryHandler : IRequestHandler<GetEquipmentByIdQuery, Equipment>
+    public class GetEquipmentByIdQueryHandler : IRequestHandler<GetEquipmentByIdQuery, Core.Domain.Equipment.Equipment>
     {
         private readonly IApplicationDbContext _context;
         private readonly ILogger<GetEquipmentByIdQueryHandler> _logger;
@@ -68,7 +68,7 @@ namespace ServiceProvider.Services.Equipment.Queries
         /// <param name="cancellationToken">Cancellation token</param>
         /// <returns>Retrieved equipment entity or null if not found</returns>
         /// <exception cref="OperationCanceledException">Thrown when operation is canceled</exception>
-        public async Task<Equipment> Handle(GetEquipmentByIdQuery request, CancellationToken cancellationToken)
+        public async Task<Core.Domain.Equipment.Equipment> Handle(GetEquipmentByIdQuery request, CancellationToken cancellationToken)
         {
             Guard.Against.Null(request, nameof(request));
 
@@ -81,7 +81,7 @@ namespace ServiceProvider.Services.Equipment.Queries
             try
             {
                 // Check cache first
-                if (_cache.TryGetValue(cacheKey, out Equipment cachedEquipment))
+                if (_cache.TryGetValue(cacheKey, out Core.Domain.Equipment.Equipment cachedEquipment))
                 {
                     _logger.LogInformation("Cache hit for equipment ID {EquipmentId}", request.Id);
                     return cachedEquipment;

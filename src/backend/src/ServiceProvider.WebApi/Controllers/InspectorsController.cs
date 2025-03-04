@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Asp.Versioning;
 using MediatR; // v11.0.0
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;

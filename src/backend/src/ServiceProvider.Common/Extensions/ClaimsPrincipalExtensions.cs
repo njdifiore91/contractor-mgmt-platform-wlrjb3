@@ -18,16 +18,16 @@ namespace ServiceProvider.Common.Extensions
         /// <param name="principal">The ClaimsPrincipal containing user claims.</param>
         /// <returns>The user ID from claims or null if not found.</returns>
         /// <exception cref="ArgumentNullException">Thrown when principal is null.</exception>
-        public static string GetUserId(this ClaimsPrincipal principal)
+        public static int GetUserId(this ClaimsPrincipal principal)
         {
             if (principal == null)
             {
                 throw new ArgumentNullException(nameof(principal), "ClaimsPrincipal cannot be null when accessing user ID.");
             }
 
-            return principal.Claims
+            return int.TryParse(principal.Claims
                 .SingleOrDefault(c => c.Type == AuthorizationConstants.JwtClaimTypes_UserId)
-                ?.Value;
+                ?.Value, out var userId) ? userId : 0;
         }
 
         /// <summary>
