@@ -20,10 +20,11 @@ namespace ServiceProvider.Services.Users.Commands
         public string FirstName { get; }
         public string LastName { get; }
         public string AzureAdB2CId { get; }
+        public string Password { get; }
         public DateTime CreatedAt { get; }
         public string CreatedBy { get; }
 
-        public CreateUserCommand(string email, string firstName, string lastName, string azureAdB2CId, string createdBy)
+        public CreateUserCommand(string email, string firstName, string lastName, string azureAdB2CId, string createdBy, string password)
         {
             // Sanitize and trim inputs
             Email = (email ?? string.Empty).Trim();
@@ -32,6 +33,7 @@ namespace ServiceProvider.Services.Users.Commands
             AzureAdB2CId = (azureAdB2CId ?? string.Empty).Trim();
             CreatedBy = (createdBy ?? string.Empty).Trim();
             CreatedAt = DateTime.UtcNow;
+            Password = (password ?? string.Empty).Trim();
         }
     }
 
@@ -43,6 +45,10 @@ namespace ServiceProvider.Services.Users.Commands
         private static readonly Regex EmailPattern = new(
             @"^(?>[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-zA-Z0-9!#$%&'*+/=?^_`{|}~-]+)*|""(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*"")@(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-zA-Z0-9-]*[a-zA-Z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])$",
             RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+        private static readonly Regex PasswordPattern = new(
+            @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",
+            RegexOptions.Compiled);
 
         private static readonly Regex NamePattern = new(@"^[a-zA-Z\s-']{2,50}$", RegexOptions.Compiled);
         private static readonly Regex GuidPattern = new(@"^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$", RegexOptions.Compiled);
@@ -69,6 +75,10 @@ namespace ServiceProvider.Services.Users.Commands
             RuleFor(x => x.CreatedBy)
                 .NotEmpty().WithMessage("Created by is required.")
                 .MaximumLength(100).WithMessage("Created by cannot exceed 100 characters.");
+
+            RuleFor(x => x.Password)
+                .NotEmpty().WithMessage("Password is required.")
+                .Must(password => PasswordPattern.IsMatch(password)).WithMessage("Password must be 8+ characters; include lowercase, uppercase, digit, & one @$!%*?&.");
         }
     }
 
@@ -102,11 +112,16 @@ namespace ServiceProvider.Services.Users.Commands
                 }
 
                 // Create new user with domain validation
-                var user = new User(
-                    email: command.Email,
-                    firstName: command.FirstName,
-                    lastName: command.LastName,
-                    azureAdB2CId: command.AzureAdB2CId);
+                //var user = new User(
+                //    id: 0,
+                //    email: command.Email,
+                //    firstName: command.FirstName,
+                //    lastName: command.LastName,
+                //    azureAdB2CId: command.AzureAdB2CId,
+                //    password: command.Password);
+
+                var user = new User(command.Email, command.FirstName, command.LastName, command.AzureAdB2CId);
+                user.SetPassword(command.Password);
 
                 // Add user to database
                 _dbContext.Users.Add(user);

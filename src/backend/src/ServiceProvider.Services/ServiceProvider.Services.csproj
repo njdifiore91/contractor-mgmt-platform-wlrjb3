@@ -7,6 +7,21 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Customers\**" />
+    <Compile Remove="DrugTest\**" />
+    <Compile Remove="Equipment\**" />
+    <Compile Remove="Inspectors\**" />
+    <EmbeddedResource Remove="Customers\**" />
+    <EmbeddedResource Remove="DrugTest\**" />
+    <EmbeddedResource Remove="Equipment\**" />
+    <EmbeddedResource Remove="Inspectors\**" />
+    <None Remove="Customers\**" />
+    <None Remove="DrugTest\**" />
+    <None Remove="Equipment\**" />
+    <None Remove="Inspectors\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AutoMapper" Version="8.0.0" />
     <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="MediatR" Version="12.4.1" />
@@ -15,6 +30,10 @@
   <ItemGroup>
     <ProjectReference Include="..\ServiceProvider.Core\ServiceProvider.Core.csproj" />
     <ProjectReference Include="..\ServiceProvider.Infrastructure\ServiceProvider.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Mapping\" />
   </ItemGroup>
 
 </Project>

@@ -74,5 +74,6 @@ namespace ServiceProvider.Core.Abstractions
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
         Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
+
     }
 }

@@ -58,6 +58,7 @@ namespace ServiceProvider.Infrastructure.Data
                 entity.Property(e => e.FirstName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.LastName).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.AuditTrail).HasColumnType("nvarchar(max)");
+                entity.Property(e => e.PhoneNumber).IsRequired(false);
             });
 
             // Role configuration
@@ -138,28 +139,6 @@ namespace ServiceProvider.Infrastructure.Data
             modelBuilder.Entity<Inspector>().HasQueryFilter(e => e.IsActive);
             modelBuilder.Entity<Equipment>().HasQueryFilter(e => e.IsActive);
 
-            //modelBuilder.Entity<EquipmentAssignment.ConditionChange>().HasNoKey();
-
-            // EquipmentAssignment configuration
-            //modelBuilder.Entity<EquipmentAssignment>(entity =>
-            //{
-            //    entity.HasKey(e => e.Id);
-            //    entity.Property(e => e.Condition).IsRequired().HasMaxLength(100);
-            //    entity.Property(e => e.ReturnCondition).HasMaxLength(100);
-            //    entity.Property(e => e.LastModifiedBy).HasMaxLength(100);
-            //    //entity.HasMany(e => e.ConditionHistory)
-            //    //      .WithOne()
-            //    //      .HasForeignKey("EquipmentAssignmentId")
-            //    //      .OnDelete(DeleteBehavior.Cascade);
-            //    entity.OwnsMany(e => e.ConditionHistory, ch =>
-            //    {
-            //        ch.WithOwner().HasForeignKey("EquipmentAssignmentId");
-            //        // Define a key for the owned entity (either a generated key or composite key)
-            //        ch.HasKey("Id"); // assuming ConditionChange has an 'Id' property
-            //        // Additional configuration if needed (e.g., property lengths, table name, etc.)
-            //    });
-            //});
-
             // ConditionChange configuration
             modelBuilder.Entity<EquipmentAssignment.ConditionChange>(entity =>
             {
@@ -167,7 +146,25 @@ namespace ServiceProvider.Infrastructure.Data
                 entity.Property(e => e.PreviousCondition).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.NewCondition).IsRequired().HasMaxLength(100);
             });
+
             // Seed initial data
+            modelBuilder.Entity<Role>().HasData(
+                new Role(1, "Admin", "Admin Role"),
+                new Role(2, "Operations", "Operations Role"),
+                new Role(3, "Inspector", "Inspector Role")
+            );
+
+            modelBuilder.Entity<User>().HasData(
+                new User(1, "admin@serviceprovider.com", "Admin", "User", "cd789254-a35b-41b9-a15d-fb81aec88fbb", "Test123!", "+1123456789"),
+                new User(2, "operations@serviceprovider.com", "Operations", "User", "06c98198-e2e3-448f-9c5a-50b25bb0ebb9", "Test123!", "+1123456789"),
+                new User(3, "inspector@serviceprovider.com", "Inspector", "User", "33f86b34-b819-417f-8008-b797fec435d0", "Test123!", "+1123456789")
+                );
+
+            modelBuilder.Entity<UserRole>().HasData(
+                new UserRole(1,1, 1),
+                new UserRole(2, 2, 2),
+                new UserRole(3,3, 3)
+            );
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

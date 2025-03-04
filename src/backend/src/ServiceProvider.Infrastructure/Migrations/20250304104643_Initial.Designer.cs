@@ -12,7 +12,7 @@ using ServiceProvider.Infrastructure.Data;
 namespace ServiceProvider.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250303193637_Initial")]
+    [Migration("20250304104643_Initial")]
     partial class Initial
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -621,6 +621,35 @@ namespace ServiceProvider.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Roles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4732),
+                            Description = "Admin Role",
+                            IsActive = true,
+                            Name = "Admin",
+                            NormalizedName = "ADMIN"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4739),
+                            Description = "Operations Role",
+                            IsActive = true,
+                            Name = "Operations",
+                            NormalizedName = "OPERATIONS"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4741),
+                            Description = "Inspector Role",
+                            IsActive = true,
+                            Name = "Inspector",
+                            NormalizedName = "INSPECTOR"
+                        });
                 });
 
             modelBuilder.Entity("ServiceProvider.Core.Domain.Users.User", b =>
@@ -683,6 +712,10 @@ namespace ServiceProvider.Infrastructure.Migrations
                         .HasMaxLength(254)
                         .HasColumnType("nvarchar(254)");
 
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -700,6 +733,62 @@ namespace ServiceProvider.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Users");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AuditTrail = "[]",
+                            AzureAdB2CId = "cd789254-a35b-41b9-a15d-fb81aec88fbb",
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4830),
+                            Email = "admin@serviceprovider.com",
+                            FirstName = "Admin",
+                            IsActive = true,
+                            IsLocked = false,
+                            IsMfaEnabled = false,
+                            LastName = "User",
+                            LoginAttempts = 0,
+                            NormalizedEmail = "ADMIN@SERVICEPROVIDER.COM",
+                            Password = "Test123!",
+                            PhoneNumber = "+1123456789",
+                            PreferredLanguage = "en-US"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            AuditTrail = "[]",
+                            AzureAdB2CId = "06c98198-e2e3-448f-9c5a-50b25bb0ebb9",
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4978),
+                            Email = "operations@serviceprovider.com",
+                            FirstName = "Operations",
+                            IsActive = true,
+                            IsLocked = false,
+                            IsMfaEnabled = false,
+                            LastName = "User",
+                            LoginAttempts = 0,
+                            NormalizedEmail = "OPERATIONS@SERVICEPROVIDER.COM",
+                            Password = "Test123!",
+                            PhoneNumber = "+1123456789",
+                            PreferredLanguage = "en-US"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            AuditTrail = "[]",
+                            AzureAdB2CId = "33f86b34-b819-417f-8008-b797fec435d0",
+                            CreatedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4995),
+                            Email = "inspector@serviceprovider.com",
+                            FirstName = "Inspector",
+                            IsActive = true,
+                            IsLocked = false,
+                            IsMfaEnabled = false,
+                            LastName = "User",
+                            LoginAttempts = 0,
+                            NormalizedEmail = "INSPECTOR@SERVICEPROVIDER.COM",
+                            Password = "Test123!",
+                            PhoneNumber = "+1123456789",
+                            PreferredLanguage = "en-US"
+                        });
                 });
 
             modelBuilder.Entity("ServiceProvider.Core.Domain.Users.UserRole", b =>
@@ -730,6 +819,29 @@ namespace ServiceProvider.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("UserRoles");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            AssignedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5022),
+                            RoleId = 1,
+                            UserId = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            AssignedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5024),
+                            RoleId = 2,
+                            UserId = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            AssignedAt = new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5025),
+                            RoleId = 3,
+                            UserId = 3
+                        });
                 });
 
             modelBuilder.Entity("ServiceProvider.Core.Domain.Audit.AuditLog", b =>

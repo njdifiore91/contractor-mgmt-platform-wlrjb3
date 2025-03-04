@@ -9,6 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Controllers\CustomersController.cs" />
+    <Compile Remove="Controllers\DrugTestsController.cs" />
+    <Compile Remove="Controllers\EquipmentController.cs" />
+    <Compile Remove="Controllers\InspectorsController.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Asp.Versioning.Mvc" Version="6.4.1" />
     <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.4.0" />
     <PackageReference Include="Azure.Identity" Version="1.13.2" />

@@ -57,6 +57,11 @@ namespace ServiceProvider.Core.Domain.Users
             RevokedAt = null;
         }
 
+        public UserRole(int id, int userId, int roleId) : this(userId, roleId)
+        {
+            Id = id;
+        }
+
         /// <summary>
         /// Revokes the role assignment by setting the revocation timestamp.
         /// </summary>

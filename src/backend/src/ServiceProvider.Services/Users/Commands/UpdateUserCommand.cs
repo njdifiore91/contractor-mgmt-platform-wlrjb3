@@ -97,11 +97,10 @@ namespace ServiceProvider.Services.Users.Commands
             try
             {
                 // Begin transaction for atomic update
-                using var transaction = await _context.BeginTransactionAsync(cancellationToken);
+                //using var transaction = await _context.BeginTransactionAsync(cancellationToken);
 
                 // Retrieve user with concurrency check
-                var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Id == command.Id, cancellationToken);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == command.Id, cancellationToken);
 
                 if (user == null)
                 {
@@ -141,13 +140,14 @@ namespace ServiceProvider.Services.Users.Commands
                     userId: user.Id
                 );
 
+                _context.Users.Update(user);
                 _context.AuditLogs.Add(auditLog);
 
                 // Save changes with concurrency check
                 try
                 {
                     await _context.SaveChangesAsync(cancellationToken);
-                    await transaction.CommitAsync(cancellationToken);
+                    //await transaction.CommitAsync(cancellationToken);
 
                     _logger.LogInformation(
                         "User {UserId} profile updated successfully at {Timestamp}",
@@ -158,7 +158,7 @@ namespace ServiceProvider.Services.Users.Commands
                 }
                 catch (DbUpdateConcurrencyException)
                 {
-                    await transaction.RollbackAsync(cancellationToken);
+                    //await transaction.RollbackAsync(cancellationToken);
                     throw new ConcurrencyException("User profile was modified by another process.");
                 }
             }

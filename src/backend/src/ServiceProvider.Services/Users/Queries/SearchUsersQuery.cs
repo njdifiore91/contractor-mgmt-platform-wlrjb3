@@ -133,6 +133,11 @@ namespace ServiceProvider.Services.Users.Queries
                     request.CorrelationId,
                     searchResult.TotalCount);
 
+                foreach (var user in searchResult.Users)
+                {
+                    user.Password = null; // Remove password from search results
+                }
+
                 return searchResult;
             }
             catch (OperationCanceledException)

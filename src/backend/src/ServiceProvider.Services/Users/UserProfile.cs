@@ -7,7 +7,7 @@ using AutoMapper;
 using ServiceProvider.Services.Users.Queries;
 using ServiceProvider.Core.Domain.Users;
 
-namespace ServiceProvider.Services.Mapping
+namespace ServiceProvider.Services.Users
 {
     public class UserProfile : Profile
     {
@@ -19,7 +19,8 @@ namespace ServiceProvider.Services.Mapping
                     RoleId = ur.RoleId,
                     RoleName = ur.Role.Name,
                     AssignedAt = ur.AssignedAt
-                })));
+                })))
+                .ForMember(dest => dest.Password, opt => opt.Ignore());
         }
     }
 }

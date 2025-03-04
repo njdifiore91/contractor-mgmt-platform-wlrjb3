@@ -46,8 +46,6 @@
     "yup": "^1.0.0"
   },
   "devDependencies": {
-    "@axe-core/cypress": "^4.7.0",
-    "@axe-core/vue": "^4.7.0",
     "@babel/preset-env": "^7.21.0",
     "@babel/preset-typescript": "^7.21.0",
     "@jest/types": "^29.0.0",

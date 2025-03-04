@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -117,6 +117,7 @@ namespace ServiceProvider.Infrastructure.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Email = table.Column<string>(type: "nvarchar(254)", maxLength: 254, nullable: false),
+                    Password = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     NormalizedEmail = table.Column<string>(type: "nvarchar(254)", maxLength: 254, nullable: false),
                     FirstName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
                     LastName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
@@ -366,6 +367,41 @@ namespace ServiceProvider.Infrastructure.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.InsertData(
+                table: "Roles",
+                columns: new[] { "Id", "CreatedAt", "Description", "IsActive", "ModifiedAt", "Name", "NormalizedName" },
+                values: new object[,]
+                {
+                    { 1, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4732), "Admin Role", true, null, "Admin", "ADMIN" },
+                    { 2, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4739), "Operations Role", true, null, "Operations", "OPERATIONS" },
+                    { 3, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4741), "Inspector Role", true, null, "Inspector", "INSPECTOR" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "Users",
+                columns: new[] { "Id", "AuditTrail", "AzureAdB2CId", "CreatedAt", "Email", "FirstName", "IsActive", "IsLocked", "IsMfaEnabled", "LastLoginAt", "LastName", "LockoutEnd", "LoginAttempts", "ModifiedAt", "NormalizedEmail", "Password", "PhoneNumber", "PreferredLanguage" },
+                values: new object[,]
+                {
+                    { 1, "[]", "cd789254-a35b-41b9-a15d-fb81aec88fbb", new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4830), "admin@serviceprovider.com", "Admin", true, false, false, null, "User", null, 0, null, "ADMIN@SERVICEPROVIDER.COM", "Test123!", "+1123456789", "en-US" },
+                    { 2, "[]", "06c98198-e2e3-448f-9c5a-50b25bb0ebb9", new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4978), "operations@serviceprovider.com", "Operations", true, false, false, null, "User", null, 0, null, "OPERATIONS@SERVICEPROVIDER.COM", "Test123!", "+1123456789", "en-US" },
+                    { 3, "[]", "33f86b34-b819-417f-8008-b797fec435d0", new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(4995), "inspector@serviceprovider.com", "Inspector", true, false, false, null, "User", null, 0, null, "INSPECTOR@SERVICEPROVIDER.COM", "Test123!", "+1123456789", "en-US" }
+                });
+
+            migrationBuilder.InsertData(
+                table: "UserRoles",
+                columns: new[] { "Id", "AssignedAt", "RevokedAt", "RoleId", "UserId" },
+                values: new object[] { 1, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5022), null, 1, 1 });
+
+            migrationBuilder.InsertData(
+                table: "UserRoles",
+                columns: new[] { "Id", "AssignedAt", "RevokedAt", "RoleId", "UserId" },
+                values: new object[] { 2, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5024), null, 2, 2 });
+
+            migrationBuilder.InsertData(
+                table: "UserRoles",
+                columns: new[] { "Id", "AssignedAt", "RevokedAt", "RoleId", "UserId" },
+                values: new object[] { 3, new DateTime(2025, 3, 4, 10, 46, 43, 382, DateTimeKind.Utc).AddTicks(5025), null, 3, 3 });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AuditLogs_UserId",

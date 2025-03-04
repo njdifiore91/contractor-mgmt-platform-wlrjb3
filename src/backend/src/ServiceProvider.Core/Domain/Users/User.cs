@@ -23,6 +23,7 @@ namespace ServiceProvider.Core.Domain.Users
 
         public int Id { get; private set; }
         public string Email { get; private set; }
+        public string Password { get; set; }
         public string NormalizedEmail { get; private set; }
         public string FirstName { get; private set; }
         public string LastName { get; private set; }
@@ -62,11 +63,13 @@ namespace ServiceProvider.Core.Domain.Users
 
             if (string.IsNullOrWhiteSpace(lastName))
                 throw new ArgumentException("Last name cannot be empty.", nameof(lastName));
+
             if (!NamePattern.IsMatch(lastName))
                 throw new ArgumentException("Invalid last name format or length.", nameof(lastName));
 
             if (string.IsNullOrWhiteSpace(azureAdB2CId))
                 throw new ArgumentException("Azure AD B2C ID cannot be empty.", nameof(azureAdB2CId));
+
             if (!GuidPattern.IsMatch(azureAdB2CId))
                 throw new ArgumentException("Invalid Azure AD B2C ID format.", nameof(azureAdB2CId));
 
@@ -83,6 +86,17 @@ namespace ServiceProvider.Core.Domain.Users
             IsMfaEnabled = false;
             AuditTrail = JsonSerializer.Serialize(new List<AuditEntry>());
             PreferredLanguage = "en-US";
+        }
+
+        //only used for seeding data
+        public User(int id, string email, string firstName, string lastName, string azureAdB2CId, string password, string phoneNumber) : this(email, firstName, lastName, azureAdB2CId)
+        {
+            if (string.IsNullOrWhiteSpace(password))
+                throw new ArgumentException("Password cannot be empty.", nameof(password));
+
+            Id = id;
+            Password = password;
+            PhoneNumber = phoneNumber;
         }
 
         /// <summary>
@@ -108,6 +122,8 @@ namespace ServiceProvider.Core.Domain.Users
 
             AddAuditEntry("ProfileUpdated", $"Profile updated: {firstName} {lastName}");
         }
+
+        public void SetPassword(string password) => Password = password;
 
         /// <summary>
         /// Assigns a new role to the user.

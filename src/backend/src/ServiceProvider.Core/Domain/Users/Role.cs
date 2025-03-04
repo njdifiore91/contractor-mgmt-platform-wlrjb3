@@ -73,6 +73,11 @@ namespace ServiceProvider.Core.Domain.Users
             UserRoles = new HashSet<UserRole>();
         }
 
+        public Role(int id, string name, string description) : this(name, description)
+        {
+            Id = id;
+        }
+
         /// <summary>
         /// Updates the role's details with validation and audit tracking.
         /// </summary>

@@ -19,7 +19,7 @@ namespace ServiceProvider.WebApi.Controllers
     /// </summary>
     [ApiController]
     [Route("api/v1/users")]
-    //[Authorize]
+    [Authorize]
     [ApiVersion("1.0")]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public class UsersController : ControllerBase
